@@ -130,3 +130,58 @@ plt.grid    (True)
 plt.show    ()
 
 # %%
+'''
+As expected this sound is approximately periodic (period=65 samples, i.e.
+8 ms; fundamental frequency = 125 Hz). Notice, though, that this is only
+apparent; in practice, no sequence of samples can be found more than once
+in the frame.
+'''
+
+# %%
+'''
+Now let us see the spectral content of this speech frame, by plotting its
+periodogram on 512 points (using a normalized frequency axis; remember 
+pi corresponds to Fs/2, i.e. to 4000 Hz here). 
+'''
+
+def plot_periodogram(frame):
+    """
+    Replicates MATLAB's periodogram(input_frame, [], 512) function 
+    with normalized amplitude and frequency settings.
+
+    For Python perodogram is a 2D plot with normalized frequency on the 
+    horizontal axis and the PSD on the vertical axis. 
+    It is in the following format:
+    frequency, PSD = periodogram(x, fs, window=None,nfft=integer)
+    The window is chosen to be rectangular by default if it is left blank. 
+    P stands for power and xx for autocorrelation.
+    detrend is fixed as a constant value, we need to set it as False.
+    Otherwise, it subtracts the DC component of the signal (removes linear 
+    or constant trends) before taking the Fourier transform.
+    """
+
+    # fs=2*pi and detrend=False mimic MATLAB's normalized PSD assumptions
+    f_rad, Pxx = signal.periodogram(frame, 
+                                    fs=2*np.pi, 
+                                    window='boxcar', 
+                                    detrend=False,
+                                    nfft=512)
+    
+    # Map the frequency axis between 0 and 1 (as multiples of pi)
+    f_normalized = f_rad / np.pi
+    
+    # Convert the linear PSD to Decibels (dB)
+    Pxx_db = 10 * np.log10(Pxx)
+    
+    plt.figure  (figsize=(10, 8))
+    plt.plot    (f_normalized, Pxx_db)
+    plt.title   ('Periodogram Power Spectral Density Estimate')
+    plt.ylabel  ('Power/frequency (dB/(rad/sample))')
+    plt.xlabel  ('Normalized Frequency ($\\times \\pi$ rad/sample)')
+    plt.xlim    (0, 1)
+    plt.grid    (True)
+    plt.show    ()
+
+plot_periodogram(input_frame_for_letter_e)
+
+# %%
