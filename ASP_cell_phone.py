@@ -61,8 +61,8 @@ position of the four vowels in this plot, since vowels usually have
 higher amplitude than other sounds. The vowel 'e' in "the", for instance,
 is approximately centered on sample 3500.
 '''
-# %%
 
+# %%
 '''
 As such, however, the speech waveform is not "readable", even by an
 expert phonetician. Its information (phonetic) content is hidden. In
@@ -85,16 +85,48 @@ def plot_spectrogram(audio, fs=8000):
                                    nperseg=40,
                                    noverlap=20,
                                    nfft=512)
-    plt.figure(figsize=(10, 8))
+    plt.figure      (figsize=(10, 8))
     # Python uses 'viridis' color map as default. 
     # Instead we will use MATLAB's 'jet' colormap for exact visual match
-    plt.pcolormesh(t, f, 10 * np.log10(Sxx), shading='auto', cmap='jet')
-    plt.title("Spectrogram")
-    plt.ylabel('Frequency (Hz)')
-    plt.xlabel('Time (s)')
-    plt.show()
+    plt.pcolormesh  (t, f, 10 * np.log10(Sxx), shading='auto', cmap='jet')
+    plt.title       ("Spectrogram")
+    plt.ylabel      ('Frequency (Hz)')
+    plt.xlabel      ('Time (s)')
+    plt.show        ()
 
 plot_spectrogram(audio)
 
 # %%
+'''
+In this plot, pitch periods appear as vertical lines. As a matter of
+fact, since the length of analysis frames is very small, some frames fall
+on the peaks (resp., on the valleys) of pitch periods, and thus appear as
+a darker (resp., lighter) vertical lines.
 
+In contrast, formants (resonant frequencies of the vocal tract) appear as
+dark (and rather wide) horizontal traces. Although their frequency is not
+easy to measure with precision, experts looking at such a spectrogram can
+actually often read it (i.e. guess the corresponding words). This clearly
+shows that formants are a good indicator of the underlying speech sounds.
+'''
+
+# %%
+'''
+2. Linear prediction synthesis of 30 ms of voiced speech
+Let us extract a 30 ms frame from a voiced part (i.e. 240 samples) of the
+speech file, and plot its samples. 
+'''
+
+# The following interval corresponds to the time interval of letter 'e' 
+# from the speech file.
+input_frame_for_letter_e = audio[3499:3739]
+time = np.arange(0,240,1)
+plt.figure  (figsize=(10, 8))
+plt.plot    (input_frame_for_letter_e)
+plt.title   ('Zooming on the letter "e"')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+plt.show    ()
+
+# %%
