@@ -19,7 +19,9 @@ Copyright T. Dutoit, N. Moreau, 2008
 Python translation by Ediz Aldogan.
 '''
 
+import matplotlib.pyplot as plt
 # Set global figure parameter 
+# This makes all the background colors of figures white by default.
 # (MATLAB equivalent: set(0,'defaultFigureColor','w'))
 plt.rcParams['figure.facecolor'] = 'white'
 
@@ -36,7 +38,6 @@ web)
 # However, Python reads the raw format which ranges between -32768 and 32767
 # To normalize we use the following equation: audio = audio_raw / 32768
 import numpy             as np
-import matplotlib.pyplot as plt
 from scipy.io            import wavfile
 sample_rate, audio_raw   = wavfile.read("speech.wav")
 audio = audio_raw / 32768
@@ -183,5 +184,113 @@ def plot_periodogram(frame):
     plt.show    ()
 
 plot_periodogram(input_frame_for_letter_e)
+
+# %%
+'''
+The fundamental frequency appears again at around 125 Hz. One can also
+roughly estimate the position of formants (peaks in the spectral
+envelope) at +- 300 Hz, 1400 Hz, 2700 Hz.
+'''
+
+# %%
+
+'''
+Let us now fit an LP model of order 10 to our voiced frame. We obtain
+the prediction coefficients (ai) and the variance of the residual signal
+(sigma_square).
+Notice we do not apply windowing prior to LP analysis now, as it has 
+no tutorial benefit. We will add it in subsequent Sections.
+'''
+
+def autocorrelation_calculation(input_frame, order):
+    '''
+    Takes in the 240 element frame and calculates the autocorrelation
+    values R[0], R[1],..., R[p] where p is the order.
+    '''
+    # Autocorrelation vector will be in the form: r=[R[0] R[1] R[2] ... R[p]]
+    autocorrelation_vector = []
+    # p (the order) goes from 0 to p.
+    for p in range(order + 1):
+        sum = 0
+        # n goes from 0 to 240-p.
+        for n in range(len(input_frame)-p):
+            # By definition, we multiply the signal itself by its 
+            # k-unit shifted version and add the results.
+            sum = sum + input_frame[n]*input_frame[n+p]
+        autocorrelation_vector.append(sum)
+    print('autocorrelation_vector is', autocorrelation_vector)
+    return autocorrelation_vector
+
+def lpc_calculation(input_frame, order):
+    '''
+    For a given frame we try to find the optimal ai coefficients that 
+    minimizes the expectation of the residual energy argmin(E[e^2[n]]).
+    This function solves the Yule-Walker equations by brute-force.
+    Yule-Walker equations are in the following matrix format: R*a=r.
+    '''
+    
+    R = [] # pxp matrix
+    # Create the autocorrelation vector containing R[0] to R[p]
+    autocorrelation_vector = autocorrelation_calculation(input_frame, order)
+    for i in range(1,order+1):
+        R_row_i = []
+        for j in range(1,order+1):
+            # Row i=1 of R is R[0], R[-1](or R[1]), ..., R[1-p] (or R[p-1])
+            # Row i=2 of R is R[1], R[0], R[-1](or R[1]), ..., R[2-p] (or R[p-2])
+            # ...
+            # Row i=p of R is R[p-1], R[p-2], R[p-3], ..., R[0]
+            # It is enough to check the absolute value of the difference i and j
+            # because R[k]=R[-k] is satisfied for any k.
+            R_row_i.append(autocorrelation_vector[abs(i-j)])
+        R.append(R_row_i)
+
+    # Yule-Walker Equations expanded form: 
+    # a1*R[k-1] + a2*R[k-2] +...+ ap*R[k-p] = -R[k]
+
+    # To obtain the right hand side, we need to negate the autocorrelation vector:
+    for i in range(len(autocorrelation_vector)):
+        autocorrelation_vector[i] = -autocorrelation_vector[i]
+
+    # Now that R is formed, we start eliminating the unknowns by replacing them 
+    # in terms of the rest of the unknowns using Gaussian elimination.
+
+    # Gaussian Elimination Algorithm
+    for i in range(order): # picking the i_th element of i_th row
+        coef_of_the_a_to_be_eliminated = R[i][i]
+        for j in range(i+1,order): # finding multipliers under row i
+            multiplier = R[j][i] / coef_of_the_a_to_be_eliminated
+            for k in range(i, order): # executing subtraction of rows
+                R[j][k] = R[j][k] - (multiplier * R[i][k])
+
+    # Obtaining ai_coefficients = [a1 a2 ... ap]:
+    ai_coefficients = [0]*order # px1 lpc coefficients vector
+    
+    # Begin from the right
+    for i in range(order - 1, -1, -1):
+        current_sum = 0
+        for j in range(i + 1, order): # only right side concerns us.
+            current_sum = current_sum + (R[i][j] * ai_coefficients[j])
+            
+        # Rearrange the Yule-Walker Equation, leave lpc coef. alone.
+        ai_coefficients[i] = (autocorrelation_vector[i] - current_sum) / R[i][i]
+        
+    # By definition of LPC, the first coefficient a0 is always 1.0.
+    # We insert 1.0 at the very beginning of our array.
+    ai_coefficients.insert(0, 1)
+
+    # Residual energy: E = a0*R[0] + a1*R[1] + a2*R[2] + ... + ap*R[p]
+    sigma_squared = autocorrelation_vector[0]
+    for i in range(1, order + 1):
+        sigma_squared = sigma_squared + (ai_coefficients[i] * autocorrelation_vector[i])
+
+    return ai_coefficients, sigma_squared
+            
+# Notice that the input frame has 240 elements in it.
+ai_coefficients, sigma_squared = lpc_calculation(input_frame_for_letter_e, 10)
+
+print('ai_coefficients are ',ai_coefficients)
+print('sigma_squared is ',sigma_squared)
+
+
 
 # %%
