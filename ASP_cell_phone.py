@@ -19,6 +19,10 @@ Copyright T. Dutoit, N. Moreau, 2008
 Python translation by Ediz Aldogan.
 '''
 
+# Set global figure parameter 
+# (MATLAB equivalent: set(0,'defaultFigureColor','w'))
+plt.rcParams['figure.facecolor'] = 'white'
+
 # %%
 '''
 1. Examining a speech file
