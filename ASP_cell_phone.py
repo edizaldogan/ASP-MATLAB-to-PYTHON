@@ -142,7 +142,7 @@ periodogram on 512 points (using a normalized frequency axis; remember
 pi corresponds to Fs/2, i.e. to 4000 Hz here). 
 '''
 
-def plot_periodogram(frame):
+def plot_periodogram(frame, fs):
     """
     Replicates MATLAB's periodogram(input_frame, [], 512) function 
     with normalized amplitude and frequency settings.
@@ -158,15 +158,17 @@ def plot_periodogram(frame):
     or constant trends) before taking the Fourier transform.
     """
 
-    # fs=2*pi and detrend=False mimic MATLAB's normalized PSD assumptions
-    f_rad, Pxx = signal.periodogram(frame, 
-                                    fs=2*np.pi, 
+    # detrend=False mimic MATLAB's normalized PSD assumption
+    f, Pxx = signal.periodogram(frame, 
+                                    fs=fs, 
                                     window='boxcar', 
                                     detrend=False,
                                     nfft=512)
     
     # Map the frequency axis between 0 and 1 (as multiples of pi)
-    f_normalized = f_rad / np.pi
+    # f_max = fs/2
+    # f_normalized = f/f_max = f/(fs/2) = 2*f/fs
+    f_normalized = 2*f/fs
     
     # Convert the linear PSD to Decibels (dB)
     Pxx_db = 10 * np.log10(Pxx)
@@ -179,7 +181,7 @@ def plot_periodogram(frame):
     plt.xlim    (0, 1)
     plt.grid    (True)
 
-plot_periodogram(input_frame_for_letter_e)
+plot_periodogram(input_frame_for_letter_e, 2*np.pi)
 
 # %%
 '''
@@ -366,34 +368,70 @@ plot its frequency response (on 512 points), and superimpose it to that
 of the "synthesis" filter 1/A(z).
 '''
 
-def plot_filter_responses(ai):
-    """
-    Replicates MATLAB's freqz plots for the LPC filters.
-    ai: The linear prediction coefficients array.
-    """
-    # Synthesis filter is: 1 / A(z) (all-poles filter)
-    # The 'b' (numerator) coefficients are 1, the 'a' (denominator) is our ai array
-    W, H = signal.freqz(1, ai, worN=512)
-    
-    # Inverse filter is: A(z)
-    # The 'b' coefficients are now ai, the 'a' coefficients are now 1
-    WI, HI = signal.freqz(ai, 1, worN=512)
-    
-    plt.figure(figsize=(10, 8))
-    
-    x_tick_marks = np.arange(0, 1.1, 0.1)
-    # W/np.pi normalizes the X-axis to the range 0 to 1
-    plt.plot    (W/np.pi, 20*np.log10(np.abs(H)),'-', label='Synthesis filter 1/A(z)')
-    plt.plot    (WI/np.pi, 20*np.log10(np.abs(HI)),'--', label='Inverse filter A(z)')
-    plt.xlabel  ('Normalized frequency ($\\times \\pi$ rad/sample)')
-    plt.ylabel  ('Magnitude (dB)')
-    plt.xticks  (x_tick_marks)
-    plt.legend  ()
-    plt.grid    (True)
-    plt.show    ()
+# Synthesis filter is: 1 / A(z) (all-poles filter)
+# The 'b' (numerator) coefficients are 1, the 'a' (denominator) is our ai array
+W, H = signal.freqz(1, a_coefficients, worN=512)
 
-plot_filter_responses(a_coefficients)
+# Inverse filter is: A(z)
+# The 'b' coefficients are now ai, the 'a' coefficients are now 1
+WI, HI = signal.freqz(a_coefficients, 1, worN=512)
+
+plt.figure(figsize=(10, 8))
+
+x_tick_marks = np.arange(0, 1.1, 0.1)
+# W/np.pi normalizes the X-axis to the range 0 to 1
+plt.plot    (W/np.pi, 20*np.log10(np.abs(H)),'-', label='Synthesis filter 1/A(z)')
+plt.plot    (WI/np.pi, 20*np.log10(np.abs(HI)),'--', label='Inverse filter A(z)')
+plt.xlabel  ('Normalized frequency ($\\times \\pi$ rad/sample)')
+plt.ylabel  ('Magnitude (dB)')
+plt.xticks  (x_tick_marks)
+plt.legend  ()
+plt.grid    (True)
 
 # %%
 
+'''
+In other words, the frequency response of the filter 1/A(z) matches the
+spectral amplitude envelope of the frame. Let us superimpose this
+frequency response to periodogram of the vowel.
+
+NB: the |periodogram| function of MATLAB actually shows the so-called
+one-sided periodogram, which has twice the value of the two-sided
+periodogram in [0,Fs/2]. In order to force MATLAB to show the real value
+of the two-sided periodogram in [0, Fs/2], we claim Fs=2.
+'''
+
+plot_periodogram(input_frame_for_letter_e, 2) # fs=2
+plt.plot(W/np.pi,20*np.log10(sigma*abs(H)));
+plt.show()
+
+'''
+PHYSICAL AND MATHEMATICAL INTERPRETATION OF THE PLOTS:
+1. The Periodogram (Blue Line - The Source / Vocal Cords):
+   This plot is the brute-force Fast Fourier Transform (FFT) of the raw 240-sample 
+   audio frame of letter 'e'. Because it is computed from many independent data points,
+   it has the capacity to produce highly detailed (spiky), rapid oscillations. These 
+   sharp and dense spikes (harmonics) represent the fundamental frequency and the raw 
+   vibration of the vocal cords.
+
+2. The 1/A(z) LPC Envelope (Orange Line - The Filter / Vocal Tract):
+   This plot represents the frequency response of our synthesis filter, 1/A(z).
+   When we call `signal.freqz(1, ai, worN=512)`, the algorithm essentially takes 
+   our small 11-element coefficient array [1, a1, a2, ..., a10], zero-pads it up 
+   to 512 points [1, a1, a2, ..., a10, 0, ..., 0], and computes its FFT (which 
+   gives A(z)). Taking the inverse of this result yields the 1/A(z) envelope.
+
+3. Why is the envelope so smooth while the periodogram is oscillatory?
+   Since the orange line is generated from only 11 non-zero values (the LPC coefficients), 
+   it physically lacks the information capacity to create sharp, rapid spikes. It can 
+   only produce broad, smooth oscillations. 
+   
+Conclusion:
+By solving the Yule-Walker equations, we optimized these 11 numbers so that their 
+smooth FFT inverse tightly wraps around the highest energy peaks of the raw periodogram. 
+This perfectly isolates the macroscopic shape of the vocal tract (the formants) while 
+filtering out the microscopic vocal cord vibrations.
+'''
+
+# %%
 
