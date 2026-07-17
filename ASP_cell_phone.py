@@ -53,7 +53,6 @@ plt.xlabel  ("Time [samples]")
 plt.ylabel  ("Amplitude")
 plt.plot    (speech_time, audio)
 plt.grid    (True)
-plt.show    ()
 
 # %%
 '''
@@ -93,7 +92,6 @@ def plot_spectrogram(audio, fs=8000):
     plt.title       ("Spectrogram")
     plt.ylabel      ('Frequency (Hz)')
     plt.xlabel      ('Time (s)')
-    plt.show        ()
 
 plot_spectrogram(audio)
 
@@ -128,7 +126,6 @@ plt.title   ('Zooming on the letter "e"')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
-plt.show    ()
 
 # %%
 '''
@@ -181,7 +178,6 @@ def plot_periodogram(frame):
     plt.xlabel  ('Normalized Frequency ($\\times \\pi$ rad/sample)')
     plt.xlim    (0, 1)
     plt.grid    (True)
-    plt.show    ()
 
 plot_periodogram(input_frame_for_letter_e)
 
@@ -261,7 +257,7 @@ def lpc_calculation(input_frame_for_letter_e, order):
         col_counter = 0
         for element in row:
             value = abs(row_counter-col_counter)
-            print(f'R[{row_counter:>2}][{col_counter:>2}]=R[{value:>2}]={element:>6.3f}', end=' | ')
+            print(f'R[{row_counter}][{col_counter}]=R[{value}]={element:>6.3f}', end=' | ')
             col_counter += 1
         print('')
         row_counter += 1
@@ -355,5 +351,49 @@ for element in a_coefficients:
 print('')
 print('sigma_squared = ', sigma_squared)
 print('sigma = ', sigma)
+print('')
 
 # %%
+
+'''
+The estimation algorithm inside LPC is called the Levinson-Durbin
+algorithm. It chooses the coefficients of an FIR filter A(z) so that when
+passing the input frame into A(Z), the output, termed as the prediction
+residual, has minimum energy. It can be shown that this leads to a filter
+which has anti-resonances wherever the input frame has a formant. For
+this reason, the A(z) filter is termed as the "inverse" filter. Let us
+plot its frequency response (on 512 points), and superimpose it to that
+of the "synthesis" filter 1/A(z).
+'''
+
+def plot_filter_responses(ai):
+    """
+    Replicates MATLAB's freqz plots for the LPC filters.
+    ai: The linear prediction coefficients array.
+    """
+    # Synthesis filter is: 1 / A(z) (all-poles filter)
+    # The 'b' (numerator) coefficients are 1, the 'a' (denominator) is our ai array
+    W, H = signal.freqz(1, ai, worN=512)
+    
+    # Inverse filter is: A(z)
+    # The 'b' coefficients are now ai, the 'a' coefficients are now 1
+    WI, HI = signal.freqz(ai, 1, worN=512)
+    
+    plt.figure(figsize=(10, 8))
+    
+    x_tick_marks = np.arange(0, 1.1, 0.1)
+    # W/np.pi normalizes the X-axis to the range 0 to 1
+    plt.plot    (W/np.pi, 20*np.log10(np.abs(H)),'-', label='Synthesis filter 1/A(z)')
+    plt.plot    (WI/np.pi, 20*np.log10(np.abs(HI)),'--', label='Inverse filter A(z)')
+    plt.xlabel  ('Normalized frequency ($\\times \\pi$ rad/sample)')
+    plt.ylabel  ('Magnitude (dB)')
+    plt.xticks  (x_tick_marks)
+    plt.legend  ()
+    plt.grid    (True)
+    plt.show    ()
+
+plot_filter_responses(a_coefficients)
+
+# %%
+
+
