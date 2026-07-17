@@ -486,10 +486,29 @@ def zplane(b, a):
     plt.ylim([-1.5, 1.5])
     plt.grid(True)
     plt.legend()
-    plt.show()
 
 zplane([1], a_coefficients)
 
 # %%
 
+'''
+If we apply the inverse of this filter to the input frame, we obtain the
+prediction residual.
+'''
 
+def plot_filter(b,a,x):
+    # b = [b0 b1 ... bn]
+    # a = [a0 a1 ... am]
+    # x = input frame
+    LP_residual = signal.lfilter(b, a, x)
+    plt.figure(figsize=(10, 8)) # Yeni bir pencere aç
+    plt.plot(LP_residual, color='blue')
+    plt.title('Linear Prediction (LP) Residual')
+    plt.xlabel('Time (samples)')
+    plt.ylabel('Amplitude')
+    plt.grid(True)
+    plt.show()
+
+plot_filter(a_coefficients,[1],input_frame_for_letter_e)
+
+# %%
