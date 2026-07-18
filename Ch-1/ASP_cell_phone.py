@@ -449,7 +449,7 @@ imitate formant resonances.
 # A(z) = 1 + a1*z^-1 + a2*z^-2 + ... + ap*z^-p
 # 1/A(z) = 1/(1 + a1*z^-1 + a2*z^-2 + ... + ap*z^-p)
 
-def zplane(b, a):
+def plot_zplane(b, a):
     """
     Replicates MATLAB's zplane(b, a) functionality.
     b: numerator coefficients
@@ -487,7 +487,17 @@ def zplane(b, a):
     plt.grid(True)
     plt.legend()
 
-zplane([1], a_coefficients)
+plot_zplane([1], a_coefficients)
+
+'''
+Are the poles inside the unit circle by coincidence?
+Absolutely not. This is a fundamental mathematical guarantee of the Yule-Walker 
+(Autocorrelation) method. For the synthesis filter 1/A(z) to be BIBO stable, all 
+its poles must lie strictly inside the unit circle (|z| < 1). The positive-definite 
+Toeplitz structure of the Yule-Walker equations mathematically ensures that the 
+roots of the resulting A(z) polynomial will always satisfy this stability criterion. 
+Otherwise, the synthesized speech would exponentially diverge to infinity.
+'''
 
 # %%
 
@@ -500,15 +510,38 @@ def plot_filter(b,a,x):
     # b = [b0 b1 ... bn]
     # a = [a0 a1 ... am]
     # x = input frame
-    LP_residual = signal.lfilter(b, a, x)
-    plt.figure(figsize=(10, 8)) # Yeni bir pencere aç
-    plt.plot(LP_residual, color='blue')
-    plt.title('Linear Prediction (LP) Residual')
+    # Y(z) = (b0+b1*z^-1+...+bn*z^-n)*X(z)/(a0+a1*z^-1+...+bn*z^-m)
+    # e[n] = x[n]+b1*x[n-1]+b2*x[n-2]+...+bp*x[n-p] if a=[1]
+    filter_output = signal.lfilter(b, a, x)
+    plt.figure(figsize=(10, 8))
+    plt.plot(filter_output, color='blue')
     plt.xlabel('Time (samples)')
     plt.ylabel('Amplitude')
     plt.grid(True)
     plt.show()
+    return filter_output
 
-plot_filter(a_coefficients,[1],input_frame_for_letter_e)
+LP_residual = plot_filter(a_coefficients,[1],input_frame_for_letter_e)
+
+# %%
+
+'''
+Let us compare the spectrum of this residual to the original spectrum.
+The new spectrum is approximately flat; its fine spectral details,
+however, are the same as those of the analysis frame. In particular, its
+pitch and harmonics are preserved. 
+'''
+
+plot_periodogram(LP_residual, 2*np.pi)
+
+# %%
+
+'''
+For obvious reasons, applying the synthesis filter to this prediction
+residual results in the analysis frame itself (since the synthesis filter
+is the inverse of the inverse filter).
+'''
+
+output_frame = plot_filter([1], a_coefficients, LP_residual)
 
 # %%
