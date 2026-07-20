@@ -518,7 +518,6 @@ def plot_filter(b,a,x):
     plt.xlabel('Time (samples)')
     plt.ylabel('Amplitude')
     plt.grid(True)
-    plt.show()
     return filter_output
 
 LP_residual = plot_filter(a_coefficients,[1],input_frame_for_letter_e)
@@ -543,5 +542,39 @@ is the inverse of the inverse filter).
 '''
 
 output_frame = plot_filter([1], a_coefficients, LP_residual)
+
+# %%
+
+'''
+The LPC model actually models the prediction residual of voiced speech as
+an impulse train with adjustable pitch period and amplitude. For the
+speech frame considered, for instance, the LPC excitation is a sequence
+of pulses separated by 64 zeros (so as to impose a period of 65 samples).
+Notice we multiply the excitation by some gain so that its variance
+matches that of the residual signal. 
+'''
+
+excitation = np.zeros(240) # 240 element frame with 65 pitch period
+excitation[::65] = 1 # we have a one in every 65 index (0, 65, 130...)
+gain = sigma / np.sqrt(1/65)
+plt.figure(figsize=(10, 8))
+plt.plot(gain*excitation)
+plt.xlabel('Time (samples)')
+plt.ylabel('Amplitude')
+plt.show()
+
+# %%
+
+'''
+Clearly, as far as the waveform is concerned, the LPC excitation is far
+from similar to the prediction residual. Its spectrum, however, has the
+same broad features as that of the residual: flat envelope, and harmonic
+content corresponding to F0. The main difference is that the excitation
+spectrum is "over-harmonic" compared to the residual spectrum.
+
+periodogram(gain*excitation,[],512);
+'''
+
+plot_periodogram(gain*excitation, 2*np.pi)
 
 # %%
