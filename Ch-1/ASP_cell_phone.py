@@ -883,3 +883,41 @@ plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
 # %%
+
+'''
+5. Unvoiced linear prediction synthesis of a speech file
+Synthesizing the complete speech file as LPC unvoiced speech is easy.
+'''
+
+synt_speech_V = []
+z = np.zeros(10) # internal variables of the synthesis filter
+
+for i in range(int((len(audio)-160)/80)): # number of frames
+    # Extracting the analysis frame
+    input_frame = audio[i*80:i*80+240]
+    # Hamming window weighting
+    windowed_frame = input_frame*np.hamming(240)
+    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    sigma = np.sqrt(sigma_squared)
+    # Generating 10 ms of excitation
+    excitation = np.random.randn(80) # White Gaussian noise
+    gain = sigma
+    synt_frame, z = signal.lfilter([gain], a_coefficients, excitation, zi=z)
+    # Concatenating synthesis frames
+    synt_speech_V.extend(synt_frame)
+
+synt_speech_V = np.array(synt_speech_V)
+
+# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE
+
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_V)
+plt.title   ('Synthesized Speech (offset)')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+plt.show()
+
+# %%
+
+
