@@ -561,7 +561,6 @@ plt.figure(figsize=(10, 8))
 plt.plot(gain*excitation)
 plt.xlabel('Time (samples)')
 plt.ylabel('Amplitude')
-plt.show()
 
 # %%
 
@@ -571,10 +570,50 @@ from similar to the prediction residual. Its spectrum, however, has the
 same broad features as that of the residual: flat envelope, and harmonic
 content corresponding to F0. The main difference is that the excitation
 spectrum is "over-harmonic" compared to the residual spectrum.
-
-periodogram(gain*excitation,[],512);
 '''
 
 plot_periodogram(gain*excitation, 2*np.pi)
+
+# %%
+
+'''
+Let us now use the synthesis filter to produce an artificial "e". 
+'''
+
+synt_frame = plot_filter(gain, a_coefficients, excitation)
+
+# %%
+
+'''
+Although the resulting waveform is obviously different from the original
+one (this is due to the fact that the LP model does not account for the
+phase spectrum of the original signal), its spectral envelope is
+identical. Its fine harmonic details, though, also widely differ (the
+synthetic frame is actually "over-harmonic" compared to the analysis
+frame.
+'''
+
+plot_periodogram(synt_frame, 2*np.pi)
+
+# %%
+
+'''
+3. Linear prediction synthesis of 30 ms of unvoiced speech
+It is easy to apply the same process to an unvoiced frame, and compare
+the final spectra again. Let us first extract an unvoiced frame and plot
+it.
+'''
+
+# The following interval corresponds to the time interval of letter 'c'
+# from the word 'circuits'.
+input_frame_for_letter_c    = audio[4499:4739]
+time                        = np.arange(0,240,1)
+plt.figure  (figsize=(10, 8))
+plt.plot    (input_frame_for_letter_c)
+plt.title   ('Zooming on the letter "c"')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+plt.show()
 
 # %%
