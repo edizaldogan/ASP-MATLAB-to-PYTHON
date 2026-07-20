@@ -658,8 +658,36 @@ def plot_welch(frame, fs=2*np.pi):
     plt.ylabel  ('Power/frequency (dB/(rad/sample))')
     plt.xlim    (0, 1)
     plt.grid    (True)
-    plt.show()
 
 plot_welch(input_frame_for_letter_c)
 
 # %%
+
+'''
+Let us now apply an LP model of order 10, and synthesize a new frame.
+Synthesis is performed by all-pole filtering a Gaussian white noise frame
+with standard deviation set to the prediction residual standard
+deviation, sigma.
+'''
+
+a_coefficients, sigma_squared = lpc_calculation(input_frame_for_letter_c, 10)
+sigma = np.sqrt(sigma_squared)
+# CHECK POINT - lpc coefficients, sigma_squared, sigma
+counter = 0
+print('lpc coefficients are: ')
+for element in a_coefficients:
+    print('a_',counter,' = ', element, sep='')
+    counter += 1
+print('')
+print('sigma_squared = ', sigma_squared)
+print('sigma = ', sigma)
+print('')
+
+excitation = np.random.randn(240) # Gaussian white noise
+# excitation is passed throuhg the the filter that models the vocal tracts
+synt_frame = plot_filter(sigma,a_coefficients,excitation)
+plt.show()
+
+# %%
+
+
