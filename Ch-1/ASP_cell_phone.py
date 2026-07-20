@@ -690,4 +690,19 @@ plt.show()
 
 # %%
 
+'''
+The synthetic waveform has no sample in common with the original
+waveform.
+'''
+
+# %%
+
+'''
+The spectral envelope of this frame, however, is very similar to the
+original one.
+'''
+
+plot_welch(synt_frame)
+
+# %%
 
