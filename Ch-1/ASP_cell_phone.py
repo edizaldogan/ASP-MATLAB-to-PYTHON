@@ -774,7 +774,7 @@ frame to the beginning of the next one.
 '''
 
 synt_speech_V = []
-z = np.zeros(10); # internal variables of the synthesis filter
+z = np.zeros(10) # internal variables of the synthesis filter
 
 for i in range(int((len(audio)-160)/80)): # number of frames
     # Extracting the analysis frame
@@ -819,5 +819,67 @@ plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
 plt.show()
+
+# %%
+
+'''
+If we want to synthesize speech with constant pitch period length
+different from a sub-multiple of 80 samples (say, 70 samples), we
+additionally need to take care of a possible pitch period offset in the
+excitation signal.
+'''
+
+synt_speech_V = []
+z = np.zeros(10) # internal variables of the synthesis filter
+offset = 0 # Offset of the next pitch pulse with respect to the 
+# start of the current frame.
+N0 = 65  # Constant synthesis pitch period (in samples)
+
+for i in range(int((len(audio)-160)/80)): # number of frames
+    # Extracting the analysis frame
+    input_frame = audio[i*80:i*80+240]
+    # Hamming window weighting
+    windowed_frame = input_frame*np.hamming(240)
+    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    sigma = np.sqrt(sigma_squared)
+    # Generating 10 ms of excitation
+    # taking a possible offset into account
+    # if pitch period length > excitation frame length
+    if offset >= 80:
+        excitation = np.zeros(80)
+        offset = offset-80
+    else:
+        # complete the previously unfinished pitch period
+        excitation = np.zeros(offset); 
+        # for all pitch periods in the remaining of the frame
+        for j in range(int(np.floor((80-offset)/N0))):
+            # add one excitation period
+            excitation = np.concatenate((excitation,[1],np.zeros(N0-1)),axis=None) 
+        # number of samples left in the excitation frame
+        flush = int(80-len(excitation))
+        if flush!=0: 
+            # fill the frame with a partial pitch period
+            excitation =  np.concatenate((excitation,[1],np.zeros(flush-1)),axis=None) 
+            # remember to fill the remaining of the period in next frame 
+            offset = N0-flush; 
+        else:
+            offset = 0
+
+    gain=sigma/np.sqrt(1/N0)
+    # Applying the synthesis filter with initial condition for smoothness
+    synt_frame, z = signal.lfilter([gain], a_coefficients, excitation, zi=z)
+    # Concatenating synthesis frames
+    synt_speech_V.extend(synt_frame)
+
+synt_speech_V = np.array(synt_speech_V)
+
+# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE
+
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_V)
+plt.title   ('Synthesized Speech (offset)')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
 
 # %%
