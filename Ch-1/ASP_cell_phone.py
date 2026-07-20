@@ -614,6 +614,52 @@ plt.title   ('Zooming on the letter "c"')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
-plt.show()
+
+# %%
+
+'''
+As expected, no clear periodicity appears.
+
+Now let us see the spectral content of this speech frame. Notice that,
+since we are dealing with noisy signals, we use the averaged periodogram
+to have a better estimate power spectral densities, although with less
+frequency resolution than using a simple periodogram. The MATLAB |pwlech|
+function does  this, with 8 sub-frames by default and 50% overlap.
+'''
+
+def plot_welch(frame, fs=2*np.pi):
+    """
+    Replicates MATLAB's default pwelch(input_frame) behavior.
+    Divides the signal into 8 sub-frames with 50% overlap using a Hamming window.
+    Plots the Averaged Periodogram with normalized frequency.
+    """
+    
+    # 8 windows: 0-S, 0.5S-1.5S, ..., 3.5S-4.5S (53 samples each)
+    L = len(frame)
+    nperseg = int(L / 4.5)
+    noverlap = nperseg // 2
+    
+    # PSD calculation
+    f, Pxx = signal.welch(frame, 
+                          fs=fs, 
+                          nfft=512,
+                          window='hamming', 
+                          nperseg=nperseg, 
+                          noverlap=noverlap,
+                          detrend=False)
+    
+    # dB conversion
+    Pxx_db = 10 * np.log10(Pxx)
+    
+    plt.figure  (figsize=(10, 8))
+    plt.plot    (f / np.pi, Pxx_db)
+    plt.title   ('Welch Power Spectral Density Estimate')
+    plt.xlabel  ('Normalized Frequency ($\\times \\pi$ rad/sample)')
+    plt.ylabel  ('Power/frequency (dB/(rad/sample))')
+    plt.xlim    (0, 1)
+    plt.grid    (True)
+    plt.show()
+
+plot_welch(input_frame_for_letter_c)
 
 # %%
