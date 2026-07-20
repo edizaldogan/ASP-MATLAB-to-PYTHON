@@ -686,7 +686,6 @@ print('')
 excitation = np.random.randn(240) # Gaussian white noise
 # excitation is passed throuhg the the filter that models the vocal tracts
 synt_frame = plot_filter(sigma,a_coefficients,excitation)
-plt.show()
 
 # %%
 
@@ -706,3 +705,60 @@ plot_welch(synt_frame)
 
 # %%
 
+'''
+4. Linear prediction synthesis of a speech file, with fixed F0
+We will now loop the previous operations for the complete speech file,
+using 30ms analysis frames overlapping by 20 ms. Frames are now weighted
+by a Hamming window. At synthesis time, we simply synthesize 10 ms of
+speech, and concatenate the resulting synthetic frames to obtain the
+output speech file. Let us choose 200 Hz as synthesis F0, for
+convenience: this way each 10ms excitation frame contains exactly two
+pulses.
+'''
+
+synt_speech_V = []
+
+for i in range(int((len(audio)-160)/80)): # number of frames
+    # Extracting the analysis frame
+    input_frame = audio[i*80:i*80+240]
+    # Hamming window weighting
+    windowed_frame = input_frame*np.hamming(240)
+    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    sigma = np.sqrt(sigma_squared)
+    # Generating 10 ms of excitation
+    # = 2 pitch periods at 200 Hz
+    excitation = np.zeros(80) # 80 element frame with 40 pitch period
+    excitation[::40] = 1 # we have a one in index 0 and 40.
+    gain = sigma/np.sqrt(1/40);
+    # Applying the synthesis filter
+    synt_frame = signal.lfilter(gain, a_coefficients, excitation)
+    # Concatenating synthesis frames
+    synt_speech_V.extend(synt_frame)
+
+synt_speech_V = np.array(synt_speech_V)
+
+# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE
+
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_V)
+plt.title   ('Synthesized Speech Waveform (F0 = 200Hz)')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+
+# %%
+
+'''
+The output waveform basically contains a sequence of LP filter impulse
+responses. Let us zoom on 30 ms of LPC speech.
+'''
+
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_V[3299:3539])
+plt.title   ('Zooming on 30ms of LPC speech')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+plt.show()
+
+# %%
