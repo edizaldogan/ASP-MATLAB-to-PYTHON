@@ -729,7 +729,7 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     # = 2 pitch periods at 200 Hz
     excitation = np.zeros(80) # 80 element frame with 40 pitch period
     excitation[::40] = 1 # we have a one in index 0 and 40.
-    gain = sigma/np.sqrt(1/40);
+    gain = sigma/np.sqrt(1/40)
     # Applying the synthesis filter
     synt_frame = signal.lfilter(gain, a_coefficients, excitation)
     # Concatenating synthesis frames
@@ -756,6 +756,65 @@ responses. Let us zoom on 30 ms of LPC speech.
 plt.figure  (figsize=(10,8))
 plt.plot    (synt_speech_V[3299:3539])
 plt.title   ('Zooming on 30ms of LPC speech')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+
+# %%
+
+'''
+It appears that in many cases they impulse responses have been cropped.
+As a matter of fact, since each synthesis frame was composed of two
+identical impulses, one should expect our LPC speech to exhibit pairs of
+identical pitch periods. This is not the case, due to the fact that for
+producing each new synthetic frame the internal variables of the
+synthesis filter are implicitly reset to zero. We can avoid this problem
+by maintaining the internal variables of the filter from the end of each
+frame to the beginning of the next one.
+'''
+
+synt_speech_V = []
+z = np.zeros(10); # internal variables of the synthesis filter
+
+for i in range(int((len(audio)-160)/80)): # number of frames
+    # Extracting the analysis frame
+    input_frame = audio[i*80:i*80+240]
+    # Hamming window weighting
+    windowed_frame = input_frame*np.hamming(240)
+    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    sigma = np.sqrt(sigma_squared)
+    # Generating 10 ms of excitation
+    excitation = np.zeros(80) # 80 element frame with 40 pitch period
+    excitation[::40] = 1 # we have a one in index 0 and 40.
+    gain = sigma/np.sqrt(1/40)
+    # Applying the synthesis filter with initial condition for smoothness
+    synt_frame, z = signal.lfilter([gain], a_coefficients, excitation, zi=z)
+    # Concatenating synthesis frames
+    synt_speech_V.extend(synt_frame)
+
+synt_speech_V = np.array(synt_speech_V)
+
+# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE
+
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_V)
+plt.title   ('Synthesized Speech (smoothed)')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+
+
+# %%
+
+'''
+This time the end of each impulse response is properly added to the
+beginning of the next one, which results in more smoothly evolving
+periods.
+'''
+
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_V[3299:3539])
+plt.title   ('Zooming on 30ms of LPC speech (smoothly evolving periods)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
