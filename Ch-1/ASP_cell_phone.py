@@ -916,8 +916,123 @@ plt.title   ('Synthesized Speech (offset)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
-plt.show()
 
 # %%
 
+'''
+6. Linear prediction synthesis of a speech file, with original F0
+We will now synthesize the same speech, using the original F0. We will
+thus have to deal with the additional problems of pitch estimation (on a
+frame-by-frame basis), including voiced/unvoiced decision. This approach
+is similar to the LPC10 that of the coder (except we do not quantize
+coefficients here).
 
+*Matlab function involved:*
+ 
+* |T0=pitch(speech_frame)| : returns the pitch period T0 (in samples) of
+a speech frame (T0 is set to zero when the frame is detected as
+unvoiced). T0 is obtained from the maximum of the (estimated)
+autocorrelation of the LPC residual. Voiced/unvoiced decision is based on
+the ratio of this maximum by the variance of the residual.
+This simple algorithm is not optimal, but will do the job for this
+proof of concept.
+'''
+
+def pitch(frame):
+    '''
+    Estimates of the fundamental frequency over time for the audio input
+    with sample rate fs. It decides whether this is a voiced or unvoiced frame.
+    '''
+    # Human voice pitch boundaries for 8000 Hz sampling rate
+    # Max pitch ~400 Hz -> 8000/400 = 20 samples
+    # Min pitch ~50 Hz  -> 8000/50  = 160 samples
+    min_T0 = 20
+    max_T0 = 160
+    
+    # Calculate total energy of the frame (zero-lag autocorrelation)
+    energy = 0
+    for i in range(len(frame)):
+        energy += frame[i] * frame[i]
+        
+    # If frame is completely silent, return 0 (unvoiced)
+    if energy == 0:
+        return 0
+        
+    best_score = 0
+    best_T0 = 0
+    # Brute-force search for the best pitch period (lag)
+    for lag in range(min_T0, max_T0):
+        score = 0
+        # Calculate the correlation score for the current lag
+        for i in range(len(frame) - lag):
+            score += frame[i] * frame[i + lag] 
+        # Update the best score and period if a higher match is found
+        if score > best_score:
+            best_score = score
+            best_T0 = lag
+            
+    # V/UV decision based on threshold
+    threshold = 0.45 * energy
+    
+    # If periodicity is strong enough, return the pitch period
+    if best_score > threshold:
+        return best_T0
+    # Otherwise, classify as unvoiced (whisper)
+    else:
+        return 0
+
+synt_speech_LPC10 = []
+z = np.zeros(10)
+offset = 0
+
+for i in range(int((len(audio)-160)/80)): # number of frames
+    # Extracting the analysis frame
+    input_frame = audio[i*80:i*80+240]
+    # Hamming window weighting
+    windowed_frame = input_frame*np.hamming(240)
+    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    sigma = np.sqrt(sigma_squared)
+
+    # local synthesis pitch period (in samples)
+    N0 = pitch(input_frame)
+
+    # Generating 10 ms of excitation
+    if N0!=0: # voiced frame
+        # Generate 10 ms of voiced excitation
+        # taking a possible offset into account
+        if offset>=80:
+            excitation = np.zeros(80)
+            offset = offset-80
+        else:
+            excitation = np.zeros(offset); 
+            for j in range(int(np.floor((80-offset)/N0))):
+                excitation = np.concatenate((excitation,[1],np.zeros(N0-1)),axis=None)
+            flush = 80-len(excitation)
+            if flush!=0: 
+                excitation = np.concatenate((excitation,[1],np.zeros(flush-1)),axis=None)
+                offset = N0-flush; 
+            else:
+                offset = 0
+        gain = sigma/np.sqrt(1/N0);
+    else:
+        # Generate 10 ms of unvoiced voiced excitation
+        excitation = np.random.randn(80) # White Gaussian noise
+        gain = sigma
+        offset = 0; # reset for subsequent voiced frames  
+    
+    synt_frame, z = signal.lfilter([gain], a_coefficients,excitation, zi=z);
+    synt_speech_LPC10.extend(synt_frame)
+
+synt_speech_LPC10 = np.array(synt_speech_LPC10)
+
+# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE
+
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_LPC10)
+plt.title   ('Synthesized Speech (Original F0)')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+plt.show()
+
+# %%
