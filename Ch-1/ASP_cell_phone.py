@@ -1171,11 +1171,10 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
 synt_speech_CELP = np.array(synt_speech_CELP)
 plt.figure  (figsize=(10,8))
 plt.plot    (synt_speech_CELP)
-plt.title   ('Synthesized Speech with CELP')
+plt.title   ('Synthesized Speech with CELP (N=10)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
-plt.show()
 
 # A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
 
@@ -1191,6 +1190,124 @@ One can see that the closed loop optimization leads to excitation frames
 which can somehow differ from the LP residual, while the resulting
 synthetic speech is more similar to its original counterpart.
 '''
+
+# %%
+
+'''
+In the above script, though, each new frame was processed independently of
+past frames. Since voiced speech is strongly self-correlated, it makes sense
+to incorporate in long-term prediction filter in cascade with the LPC
+(short-term) prediction filter. In the example below, we can reduce the
+number of stochastic components from 10 to 5, while still increasing
+speech quality thanks to long-term prediction. 
+'''
+frame_length    = 240       # length of the LPC analysis frame
+frame_shift     = 40        # length of the excitation and synthesis frames
+codebook_size   = 512       # number of vectors in the codebook
+N_components    = 5         # number of codebook components per frame
+LTP_max_delay   = 256       # maximum long-term prediction delay (in samples)
+
+# Initializing internal variables
+z_inv=np.zeros(10)  # inverse filter
+z_synt=np.zeros(10) # synthesis filter
+synt_speech_CELP = []
+excitation_buffer=np.zeros(LTP_max_delay+frame_shift)
+
+# Building the stochastic excitation codebook. The following line is
+# commented, so as to re-use the previous codebook, for comparing the
+# output with and without long-term prediction
+
+# codebook = randn(frame_shift,codebook_size); 
+
+for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
+    
+    input_frame = audio[i*frame_shift : i*frame_shift+frame_length]
+
+    # LPC analysis of order 10
+    windowed_frame = input_frame*np.hamming(frame_length)
+    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    sigma = np.sqrt(sigma_squared)
+    
+    # Extracting frame_shift samples from the LPC analysis frame
+    speech_frame = input_frame[int((frame_length-frame_shift)/2):int((frame_length-frame_shift)/2+frame_shift)]
+        
+    # Building the long-term prediction codebook and filtering it
+    LTP_codebook = np.zeros((frame_shift, LTP_max_delay))
+    for j in range(LTP_max_delay):
+         LTP_codebook[:,j] = excitation_buffer[j:j+frame_shift]
+    LTP_codebook_filt = signal.lfilter(1, a_coefficients, LTP_codebook, axis=0)
+        
+    # Filtering the stochastic codebook (all column vectors)
+    codebook_filt = signal.lfilter(1, a_coefficients, codebook, axis=0)
+    
+    # Finding the best predictor in the LTP codebook
+    ringing, x = signal.lfilter(1, a_coefficients, np.zeros(frame_shift), zi=z_synt)
+    sig = speech_frame - ringing
+    LTP_gain, LTP_index = find_Nbest_components(sig, LTP_codebook_filt, 1)
+    
+    # Generating the corresponding prediction
+    LT_prediction = np.dot(LTP_codebook[:,LTP_index],LTP_gain)
+        
+    # Finding speech_frame components in the filtered codebook
+    # taking long term prediction into account 
+    sig = sig - np.dot(LTP_codebook_filt[:,LTP_index],LTP_gain)
+    gains, indices = find_Nbest_components(sig,codebook_filt, N_components)
+    
+    # Generating the corresponding excitation as a weighted sum of
+    # codebook vectors plus long-term prediction
+    excitation = LT_prediction + np.dot(codebook[:,indices],gains)
+    
+    # Synthesizing CELP speech, and keeping track of the synthesis filter 
+    # internal variables
+    synt_frame, z_synt = signal.lfilter(1, a_coefficients, excitation, zi=z_synt)
+    synt_speech_CELP.extend(synt_frame)
+   
+    # Updating the excitation buffer for long-term prediction
+    excitation_buffer[:LTP_max_delay]=excitation_buffer[frame_shift:LTP_max_delay+frame_shift]
+    # Correction by Toni Bonafonte, UPC
+    # from:
+    #     excitation_buffer(LTP_max_delay+1:LTP_max_delay+frame_shift)=...
+    #        synt_frame;
+    # to:
+    excitation_buffer[LTP_max_delay:LTP_max_delay+frame_shift]=excitation
+
+    # Screen output
+    if (i + 1) % 10 == 0:
+        print(f'frame {i + 1:3d}')
+
+    LP_residual, z_inv = signal.lfilter(a_coefficients, 1, speech_frame, zi=z_inv)
+    if i==139:
+        plt.figure(figsize=(10, 8))
+        plt.subplot(2, 1, 1)
+        plt.plot(LP_residual, label='LPC residual')
+        plt.plot(excitation, '-.', label='CELP excitation')
+        plt.xlabel('Time (samples)')
+        plt.ylabel('Amplitude')
+        plt.yticks(np.arange(-0.2,0.2,0.05))
+        plt.legend(loc='upper right')
+        plt.grid(True)
+        
+        plt.subplot(2, 1, 2)
+        plt.plot(speech_frame, label='original speech')
+        plt.plot(synt_frame, '-.', label='synthetic speech')
+        plt.xlabel('Time (samples)')
+        plt.ylabel('Amplitude')
+        plt.yticks(np.arange(-0.6,0.6,0.2))
+        plt.legend(loc='upper right')
+        plt.grid(True)
+        
+        plt.tight_layout()
+
+synt_speech_CELP = np.array(synt_speech_CELP)
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_CELP)
+plt.title   ('Synthesized Speech with CELP (N=5)')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+plt.show()
+
+# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
 
 # %%
 
