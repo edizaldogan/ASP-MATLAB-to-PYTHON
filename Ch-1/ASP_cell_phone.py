@@ -940,46 +940,29 @@ proof of concept.
 
 def pitch(frame):
     '''
-    Estimates of the fundamental frequency over time for the audio input
-    with sample rate fs. It decides whether this is a voiced or unvoiced frame.
+    Estimates the fundamental period (in samples) of a 30 ms speech frame.
+    Returns T0 = 0 if the frame is detected as unvoiced.
+    T0 is computed from the maximum of the autocorrelation of the LPC residual.
     '''
-    # Human voice pitch boundaries for 8000 Hz sampling rate
-    # Max pitch ~400 Hz -> 8000/400 = 20 samples
-    # Min pitch ~50 Hz  -> 8000/50  = 160 samples
-    min_T0 = 20
-    max_T0 = 160
-    
-    # Calculate total energy of the frame (zero-lag autocorrelation)
-    energy = 0
-    for i in range(len(frame)):
-        energy += frame[i] * frame[i]
-        
-    # If frame is completely silent, return 0 (unvoiced)
-    if energy == 0:
-        return 0
-        
-    best_score = 0
-    best_T0 = 0
-    # Brute-force search for the best pitch period (lag)
-    for lag in range(min_T0, max_T0):
-        score = 0
-        # Calculate the correlation score for the current lag
-        for i in range(len(frame) - lag):
-            score += frame[i] * frame[i + lag] 
-        # Update the best score and period if a higher match is found
-        if score > best_score:
-            best_score = score
-            best_T0 = lag
-            
-    # V/UV decision based on threshold
-    threshold = 0.45 * energy
-    
-    # If periodicity is strong enough, return the pitch period
-    if best_score > threshold:
-        return best_T0
-    # Otherwise, classify as unvoiced (whisper)
+    a_coeffs, sigma_square = lpc_calculation(frame, 10)
+    lpc_residual = signal.lfilter(a_coeffs, [1], frame) # glottal sound 240 sample
+    # autocorrelation of the residual (2N-1: 2*240-1 = 479 elements)
+    C = np.correlate(lpc_residual, lpc_residual, mode='full')
+    center = len(lpc_residual) - 1 # center index 239
+    C_half = C[center : center + 134] # 134 elements (239-373)
+    Cxx = C_half / C_half[0] # normalization # 134 elements
+    Cxx[0:26] = 0
+    # 
+    Amax = np.max(Cxx)  # max value
+    Imax = np.argmax(Cxx) # index of the max value
+
+    # U/UV decision
+    if Amax > 0.20:
+        T0 = Imax
     else:
-        return 0
+        T0 = 0
+
+    return T0
 
 synt_speech_LPC10 = []
 z = np.zeros(10)
