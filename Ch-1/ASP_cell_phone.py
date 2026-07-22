@@ -1041,3 +1041,156 @@ bits/s, which was achieved by using larger synthesis frames (22.5 ms).
 
 # %%
 
+'''
+7. CELP analysis-synthesis  of a speech file
+Our last step will be to replace the LPC10 excitation by a more realistic
+Code-Excited Linear Prediction (CELP) excitation, obtained by
+selecting the best linear combination of excitation components from a
+codebook. Component selection is performed in a closed loop, so as to
+minimize the difference between the synthetic and original signals.
+We start with 30 ms LP analysis frames, shifted every 5 ms, and a
+codebook size of 512 vectors, from which 10 components are chosen for
+every 5 ms synthesis frame.
+'''
+
+def find_Nbest_components(sig, codebook_vectors, N):
+    """
+    Finds the N best codebook components to represent the target signal.
+    The residual error is minimized as:
+    error = signal - codebook_vectors[:, indices] * gains
+    """
+    # M: number of rows (frame_shift = 40), L: number of columns (codebook_size = 512)
+    M, L = codebook_vectors.shape
+    
+    # Calculate the norm of each vector once to optimize the loop
+    codebook_norms = np.linalg.norm(codebook_vectors, axis=0)
+    
+    gains = np.zeros(N)
+    # Forcing the index array to 'int' to prevent type conversion errors
+    indices = np.zeros(N, dtype=int) 
+    
+    # Copy the signal since we will mutate it inside the greedy loop
+    current_signal = sig.copy()
+    
+    for k in range(N):
+        max_norm = 0
+        best_j = 0
+        
+        for j in range(L):
+            # MATLAB: beta = codebook_vectors(:,j)' * signal
+            beta = np.dot(codebook_vectors[:, j], current_signal)
+            
+            if codebook_norms[j] != 0:
+                component_norm = np.abs(beta) / codebook_norms[j]
+            else:
+                component_norm = 0
+                
+            if component_norm > max_norm:
+                gains[k] = beta / (codebook_norms[j]**2)
+                best_j = j
+                max_norm = component_norm
+                
+        indices[k] = best_j
+        
+        # Greedy Algorithm: Subtract the chosen component's effect from the signal
+        current_signal = current_signal - gains[k] * codebook_vectors[:, best_j]
+        
+    return gains, indices
+
+frame_length = 240      # length of the LPC analysis frame
+frame_shift = 40        # length of the excitation and synthesis frames
+codebook_size = 512     # number of vectors in the codebook
+N_components = 10       # number of codebook components per frame
+
+# Initializing internal variables
+z_inv = np.zeros(10)  # inverse filter
+z_synt = np.zeros(10) # synthesis filter
+synt_speech_CELP = []
+
+# Generating the stochastic excitation codebook
+codebook = np.random.randn(frame_shift,codebook_size)
+
+for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
+
+    input_frame = audio[i*frame_shift : i*frame_shift+frame_length]
+
+    # LPC analysis of order 10
+    windowed_frame = input_frame*np.hamming(frame_length)
+    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    sigma = np.sqrt(sigma_squared)
+    
+    # Extracting frame_shift samples from the LPC analysis frame
+    speech_frame = input_frame[int((frame_length-frame_shift)/2):int((frame_length-frame_shift)/2+frame_shift)]
+    
+    # Filtering the codebook (all column vectors)
+    codebook_filt  = signal.lfilter(1, a_coefficients, codebook, axis=0)
+    
+    # Finding speech_frame components in the filtered codebook
+    # taking into account the transient stored in the internal variables of
+    # the synthesis filter  
+    ringing,last_situation  = signal.lfilter(1, a_coefficients, np.zeros(frame_shift), zi=z_synt)
+    sig = speech_frame - ringing
+    gains, indices = find_Nbest_components(sig, codebook_filt, N_components)
+    
+    # Generating the corresponding excitation as a weighted sum of
+    # codebook vectors
+    excitation = np.dot(codebook[:,indices],gains);
+    
+    # Synthesizing CELP speech, and keeping track of the synthesis filter 
+    # internal variables
+    synt_frame, z_synt = signal.lfilter(1, a_coefficients, excitation, zi=z_synt)
+    synt_speech_CELP.extend(synt_frame)
+   
+    # Screen output
+    if (i + 1) % 10 == 0:
+        print(f'frame {i + 1:3d}')
+
+    LP_residual, z_inv = signal.lfilter(a_coefficients, 1, speech_frame, zi=z_inv)
+    if i == 139:
+        plt.figure(figsize=(10, 8))
+        plt.subplot(2, 1, 1)
+        plt.plot(LP_residual, label='LPC residual')
+        plt.plot(excitation, '-.', label='CELP excitation')
+        plt.xlabel('Time (samples)')
+        plt.ylabel('Amplitude')
+        plt.yticks(np.arange(-0.2,0.2,0.05))
+        plt.legend(loc='upper right')
+        plt.grid(True)
+        
+        plt.subplot(2, 1, 2)
+        plt.plot(speech_frame, label='original speech')
+        plt.plot(synt_frame, '-.', label='synthetic speech')
+        plt.xlabel('Time (samples)')
+        plt.ylabel('Amplitude')
+        plt.yticks(np.arange(-0.6,0.6,0.2))
+        plt.legend(loc='upper right')
+        plt.grid(True)
+       
+        plt.tight_layout()
+
+synt_speech_CELP = np.array(synt_speech_CELP)
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_CELP)
+plt.title   ('Synthesized Speech with CELP')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+plt.show()
+
+# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
+
+# %%
+
+'''
+The resulting synthetic speech sounds more natural than in LPC10. 
+Plosives are much better rendered, and voiced sounds are no longer buzzy,
+but speech sounds a bit noisy.
+Notice that pitch and V/UV estimation are no longer required. 
+
+One can see that the closed loop optimization leads to excitation frames
+which can somehow differ from the LP residual, while the resulting
+synthetic speech is more similar to its original counterpart.
+'''
+
+# %%
+
