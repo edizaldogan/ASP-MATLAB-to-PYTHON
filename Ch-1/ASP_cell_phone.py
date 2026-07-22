@@ -1019,3 +1019,25 @@ plt.grid    (True)
 plt.show()
 
 # %%
+
+'''
+The resulting synthetic speech is intelligible. It shows the same
+formants as the original speech. It is therefore acoustically similar to
+the original, except for the additional buzzyness which has been added by
+the LP model.
+'''
+
+plot_spectrogram(synt_speech_LPC10)
+
+# %%
+
+'''
+It is easy to estimate the total bit-rate corresponding to this
+proof-of-concept: 42 bits are required for inaudible quantization of the
+prediction coefficients. Adding 7 bits for pitch and V/UV and 5 bits for
+gain gives 54 bits every 10ms: 5400 bits/s. LPC10 was normalized at 2400
+bits/s, which was achieved by using larger synthesis frames (22.5 ms).
+'''
+
+# %%
+
