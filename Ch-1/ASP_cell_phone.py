@@ -1436,10 +1436,39 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
         plt.legend(loc='upper right')
         plt.grid(True)
         plt.title('Spectral Envelope and Error Filtering (Frame 135)')
-        plt.show()
 
 synt_speech_CELP = np.array(synt_speech_CELP)
 
 # A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
+
+# %%
+
+'''
+While using less stochastic components as in the previous example,
+synthetic speech quality is maintained. 
+
+One can roughly estimate the corresponding bit-rate. Assuming 30 bits are enough 
+for the prediction coefficients and each gain factor is quantized on 5
+bits, we have to send for each frame: 30 bits [ai] + 7 bits [LTP index] 
++ 5 bits [LTP gain] + 2 [stochastic components] *(9 bits [index]
++ 5 bits [gain]) = 70 bits every 5 ms, i.e. 14 kbits/s.
+The so-called "enhanced full rate" codec of GSMs implements a particular
+version of CELP, termed as Algebraic CELP (ACELP) in which codebook
+samples can only take 0, +1, or -1 values. 
+The bit rate is maintained as low as 8 kbits/s by sending prediction
+coefficients only once every four frame.
+'''
+
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_CELP)
+plt.title   ('Synthesized Speech with CELP (N=2)')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+plt.show()
+
+# %%
+
+plot_spectrogram(synt_speech_CELP)
 
 # %%
