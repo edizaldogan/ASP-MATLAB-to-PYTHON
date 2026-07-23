@@ -1295,7 +1295,6 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
         plt.yticks(np.arange(-0.6,0.6,0.2))
         plt.legend(loc='upper right')
         plt.grid(True)
-        
         plt.tight_layout()
 
 synt_speech_CELP = np.array(synt_speech_CELP)
@@ -1305,9 +1304,142 @@ plt.title   ('Synthesized Speech with CELP (N=5)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
-plt.show()
 
 # A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
 
 # %%
 
+'''
+The resulting synthetic speech is still similar to the original one,
+notwithstanding the reduction of the number of stochastic components.  
+'''
+
+# %%
+
+'''
+While the search for the best components in the previous scripts aims at 
+minimizing the energy of the difference between original and synthetic
+speech samples, it makes sense to use the fact that the ear will be more
+tolerant to this difference in parts of the spectrum that are louder and vice
+versa. This can be achieved by applying a perceptual filter to
+the error, which enhances spectral components of the error in frequency
+bands with less energy, and vice-versa. 
+In the following example, we still decrease the number of components
+from 5 to 2, with the same overall synthetic speech quality.
+'''
+frame_length    = 240    # length of the LPC analysis frame
+frame_shift     = 40     # length of the excitation and synthesis frames
+codebook_size   = 512    # number of vectors in the codebook
+N_components    = 2      # number of codebook components per frame
+LTP_max_delay   = 256    # maximum long-term prediction delay (in samples)
+gamma           = 0.8    # perceptual factor
+
+# Initializing internal variables
+z_inv       =   np.zeros(10) # inverse filter
+z_synt      =   np.zeros(10) # synthesis filter
+z_gamma_s   =   np.zeros(10) # perceptual filter applied to speech
+z_gamma_e   =   np.zeros(10) # perceptual filter applied to excitation
+synt_speech_CELP = []
+excitation_buffer= np.zeros(LTP_max_delay+frame_shift)
+
+# Building the stochastic excitation codebook. The following line is
+# commented, so as to re-use the previous codebook, for comparing the
+# output with and without perceptual filtering
+
+# codebook = randn(frame_shift,codebook_size); 
+
+for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
+    
+    input_frame = audio[i*frame_shift:i*frame_shift+frame_length]
+
+    # LPC analysis of order 10
+    windowed_frame = input_frame*np.hamming(frame_length)
+    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    sigma = np.sqrt(sigma_squared)
+    
+    # Computing the coefficients of A(z/gamma)
+    ai_perceptual = a_coefficients*(gamma**np.arange(len(a_coefficients)))
+
+    # Extracting frame_shift samples from the LPC analysis frame
+    # and passing them through A(z)/A(z/gamma)
+    speech_frame = input_frame[int((frame_length-frame_shift)/2):int((frame_length-frame_shift)/2+frame_shift)]
+    LP_residual, z_inv = signal.lfilter(a_coefficients, 1, speech_frame, zi=z_inv)
+    perceptual_speech, z_gamma_s = signal.lfilter(1, ai_perceptual, LP_residual, zi=z_gamma_s)
+
+    # Building the long-term prediction codebook and filtering it
+    LTP_codebook = np.zeros((frame_shift, LTP_max_delay))
+    for j in range(LTP_max_delay):
+         LTP_codebook[:,j] = excitation_buffer[j:j+frame_shift]
+    LTP_codebook_filt = signal.lfilter(1, ai_perceptual, LTP_codebook, axis=0)
+        
+    # Filtering the stochastic codebook (all column vectors)
+    codebook_filt = signal.lfilter(1, ai_perceptual, codebook, axis=0)
+    
+    # Finding the best predictor in the LTP codebook
+    ringing, x = signal.lfilter(1, ai_perceptual, np.zeros(frame_shift), zi=z_gamma_e)
+    sig = perceptual_speech - ringing
+    LTP_gain, LTP_index = find_Nbest_components(sig, LTP_codebook_filt, 1)
+    
+    # Generating the corresponding prediction
+    LT_prediction = np.dot(LTP_codebook[:,LTP_index],LTP_gain)
+        
+    # Finding speech_frame components in the filtered codebook
+    # taking long term prediction into account 
+    sig = sig - np.dot(LTP_codebook_filt[:,LTP_index],LTP_gain)
+    gains, indices = find_Nbest_components(sig,codebook_filt, N_components)
+    
+    # Generating the corresponding excitation as a weighted sum of
+    # codebook vectors plus long-term prediction
+    excitation = LT_prediction + np.dot(codebook[:,indices],gains)
+
+    # Synthesizing CELP speech, and keeping track of the synthesis filter 
+    # internal variables
+    synt_frame, z_synt = signal.lfilter(1, a_coefficients, excitation, zi=z_synt)
+    synt_speech_CELP.extend(synt_frame)
+   
+    # Updating the internal variables of the percpetual filter applied to
+    # the excitation
+    ans, z_gamma_e = signal.lfilter(1, ai_perceptual, excitation,zi=z_gamma_e)
+
+    # Updating the excitation buffer for long-term prediction
+    excitation_buffer[:LTP_max_delay]=excitation_buffer[frame_shift:LTP_max_delay+frame_shift]
+    # Correction by Toni Bonafonte, UPC
+    # from:
+    #     excitation_buffer(LTP_max_delay+1:LTP_max_delay+frame_shift)=...
+    #        synt_frame;
+    # to:
+    excitation_buffer[LTP_max_delay:LTP_max_delay+frame_shift]=synt_frame
+
+    # Screen output
+    if (i + 1) % 10 == 0:
+        print(f'frame {i + 1:3d}')
+
+    if i==134:
+        plt.figure(figsize=(10, 6))
+
+        W, H  = signal.freqz([1], a_coefficients, worN=512)
+        W, HS = signal.freqz(input_frame, [1], worN=512)
+        W, HP = signal.freqz(a_coefficients, ai_perceptual, worN=512)
+        W, HE = signal.freqz(speech_frame - synt_frame, [1], worN=512)
+        # dB conversion
+        H_dB  = 20*np.log10(np.abs(H))
+        HS_dB = 20*np.log10(np.abs(HS))
+        HP_dB = 20*np.log10(np.abs(HP))
+        HE_dB = 20*np.log10(np.abs(HE))
+        
+        plt.plot(W, HS_dB, '-', label='Input frame')
+        plt.plot(W, H_dB, '--', label='Synthesis filter')
+        plt.plot(W, HP_dB, '-.', label='Perceptual filter')
+        plt.plot(W, HE_dB, ':', label='CELP residual')
+        plt.xlabel('Frequency (rad/sample)')
+        plt.ylabel('Magnitude (dB)')
+        plt.legend(loc='upper right')
+        plt.grid(True)
+        plt.title('Spectral Envelope and Error Filtering (Frame 135)')
+        plt.show()
+
+synt_speech_CELP = np.array(synt_speech_CELP)
+
+# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
+
+# %%
