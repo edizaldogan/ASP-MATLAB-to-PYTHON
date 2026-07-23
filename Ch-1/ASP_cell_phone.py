@@ -1472,3 +1472,138 @@ plt.show()
 plot_spectrogram(synt_speech_CELP)
 
 # %%
+
+'''
+Appendix 1: MPE as a particular case of CELP
+It is easy to change the CELP script we have given above to make it
+simulate Multi-Pulse Excited (MPE) linear prediction, in which 
+excitation is obtained by adjusting the position and amplitudes of a
+limited number of impulses per frame, so as to minimize a perceptually
+weighted error. Long-term prediction is also applied.
+The only thing we need to change is the codebook, which we set as an
+identity matrix (each pulse being an excitation component).
+In this test, we use 5 pulses for every 5 ms synthetic frame.
+'''
+frame_length    = 240      # length of the LPC analysis frame
+frame_shift     = 40       # length of the excitation and synthesis frames
+codebook_size   = 40       # number of vectors in the codebook
+N_components    = 5        # number of codebook components per frame
+LTP_max_delay   = 256      # maximum long-term prediction delay (in samples)
+gamma           = 0.8      # perceptual factor
+
+# Initializing internal variables
+z_inv=np.zeros(10)  # inverse filter
+z_synt=np.zeros(10) # synthesis filter
+z_gamma_s=np.zeros(10) # perceptual filter applied to speech
+z_gamma_e=np.zeros(10) # perceptual filter applied to excitatoin
+synt_speech_MPE = []
+excitation_buffer=np.zeros(LTP_max_delay+frame_shift)
+
+# Building the stochastic excitation codebook
+codebook = np.eye(frame_shift,codebook_size)
+
+for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
+    
+    input_frame = audio[i*frame_shift:i*frame_shift+frame_length]
+
+    # LPC analysis of order 10
+    windowed_frame = input_frame*np.hamming(frame_length)
+    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    sigma = np.sqrt(sigma_squared)
+        
+    # Computing the coefficients of A(z/gamma)
+    ai_perceptual = a_coefficients*(gamma**np.arange(len(a_coefficients)))
+
+    # Extracting frame_shift samples from the LPC analysis frame
+    # and passing them through A(z)/A(z/gamma)
+    speech_frame = input_frame[int((frame_length-frame_shift)/2):int((frame_length-frame_shift)/2+frame_shift)]
+    LP_residual, z_inv = signal.lfilter(a_coefficients, 1, speech_frame, zi=z_inv)
+    perceptual_speech, z_gamma_s = signal.lfilter(1, ai_perceptual,LP_residual, zi=z_gamma_s)
+    
+    # Building the long-term prediction codebook and filtering it
+    LTP_codebook = np.zeros((frame_shift,LTP_max_delay))
+    for j in range(LTP_max_delay):
+        LTP_codebook[:,j] = excitation_buffer[j:j+frame_shift]
+    LTP_codebook_filt = signal.lfilter(1, ai_perceptual, LTP_codebook, axis=0)
+        
+    # Filtering the stochastic codebook (all column vectors)
+    codebook_filt = signal.lfilter(1, ai_perceptual, codebook, axis=0)
+    
+    # Finding the best predictor in the LTP codebook
+    ringing, x = signal.lfilter(1, ai_perceptual, np.zeros(frame_shift),zi=z_gamma_e)
+    sig = perceptual_speech - ringing
+    LTP_gain, LTP_index = find_Nbest_components(sig,LTP_codebook_filt, 1)
+    
+    # Generating the corresponding prediction
+    LT_prediction = np.dot(LTP_codebook[:,LTP_index],LTP_gain)
+
+    # Finding speech_frame components in the filtered codebook
+    # taking long term prediction into account 
+    sig = sig - np.dot(LTP_codebook_filt[:,LTP_index],LTP_gain)
+    gains, indices = find_Nbest_components(sig,codebook_filt, N_components)
+    
+    # Generating the corresponding excitation as a weighted sum of
+    # codebook vectors plus long-term prediction
+    excitation = LT_prediction + np.dot(codebook[:,indices],gains)
+        
+    # Synthesizing CELP speech, and keeping track of the synthesis filter 
+    # internal variables
+    synt_frame, z_synt = signal.lfilter(1, a_coefficients, excitation, zi=z_synt)
+    synt_speech_MPE.extend(synt_frame)
+   
+    # Updating the internal variables of the percpetual filter applied to
+    # the excitation
+    ans, z_gamma_e = signal.lfilter(1, ai_perceptual, excitation, zi=z_gamma_e)
+
+    # Updating the excitation buffer for long-term prediction
+    excitation_buffer[:LTP_max_delay]=excitation_buffer[frame_shift:LTP_max_delay+frame_shift]
+    # Correction by Toni Bonafonte, UPC
+    # from:
+    #     excitation_buffer(LTP_max_delay+1:LTP_max_delay+frame_shift)=...
+    #        synt_frame;
+    # to:
+    
+    excitation_buffer[LTP_max_delay:LTP_max_delay+frame_shift]=excitation
+    LP_residual, z_inv = signal.lfilter(a_coefficients, 1, speech_frame, zi=z_inv)
+     
+    # Screen output
+    if (i + 1) % 10 == 0:
+        print(f'frame {i + 1:3d}')
+
+    if i==139:
+        plt.figure(figsize=(10, 8))
+        plt.subplot(2, 1, 1)
+        plt.plot(LP_residual, label='LPC residual')
+        plt.plot(excitation, '--', label='MPE excitation')
+        plt.xlabel('Time (samples)')
+        plt.ylabel('Amplitude')
+        plt.legend(loc='upper right')
+        plt.grid(True)
+        
+        plt.subplot(2, 1, 2)
+        plt.plot(speech_frame, label='original speech')
+        plt.plot(synt_frame, '-.', label='synthetic speech')
+        plt.xlabel('Time (samples)')
+        plt.ylabel('Amplitude')
+        plt.legend(loc='upper right')
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+synt_speech_MPE = np.array(synt_speech_MPE)
+
+# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
+
+# %%
+
+'''
+One can again roughly estimate the corresponding bit-rate. 
+Each frame requires : 30 bits [ai] + 7 bits
+[LTP index] + 5 bits [LTP gain] + 5 [pulses] *(6 bits [position]
++ 5 bits [gain]) = 97 bits every 5 ms, i.e. 19.4 kbits/s.
+
+The so-called "full rate" codec of GSMs implements a particular
+version of MPE, termed as Regular Pulse Excited,(RPE) which runs with a
+bit-rate of 13 kbits/s 
+'''
+# %%
