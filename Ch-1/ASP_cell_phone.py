@@ -189,6 +189,21 @@ the prediction coefficients (ai) and the variance of the residual signal
 Notice we do not apply windowing prior to LP analysis now, as it has 
 no tutorial benefit. We will add it in subsequent Sections.
 '''
+# Levinson Durbin Algorithm Alternative
+from scipy.linalg import solve_toeplitz
+
+def lpc_toeplitz(frame, order):
+    # Autocorrelation vector r=[R[0] R[1] R[2] ... R[p]]
+    r = [sum(frame[n] * frame[n+p] for n in range(len(frame)-p)) for p in range(order + 1)]
+    # To specify the Toeplitz matrix, only the first column and the first row are needed.
+    # Since autocorrelation matrix is symmetric the first row and first colums are the same.
+    # first_column = first_row = r[:-1], right_hand_side = r[1:]
+    a_rest = solve_toeplitz((r[:-1],r[:-1]), -np.array(r[1:]))
+    # Inserting 1 as the 0th element
+    a = np.insert(a_rest, 0, 1)
+    sigma_squared = np.dot(a, r)/len(frame)
+    return a, sigma_squared
+
 def autocorrelation_calculation(input_frame, order):
     '''
     Takes in the 240 element frame and calculates the autocorrelation
@@ -332,6 +347,20 @@ def lpc_calculation(input_frame_for_letter_e, order):
 # Notice that the input frame has 240 elements in it.
 a_coefficients, sigma_squared = lpc_calculation(input_frame_for_letter_e, 10)
 sigma = np.sqrt(sigma_squared)
+
+a_coefficients_toeplitz, sigma_squared_toeplitz = lpc_toeplitz(input_frame_for_letter_e, 10)
+sigmatoeplitz = np.sqrt(sigma_squared_toeplitz)
+
+# CHECK POINT - lpc coefficients, sigma_squared, sigma
+counter = 0
+print('lpc coefficients from toeplitz method are: ')
+for element in a_coefficients_toeplitz:
+    print('a_',counter,' = ', element, sep='')
+    counter += 1
+print('')
+print('sigma_squared = ', sigma_squared)
+print('sigma = ', sigma)
+print('')
 
 # CHECK POINT - lpc coefficients, sigma_squared, sigma
 counter = 0
