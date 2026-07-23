@@ -18,7 +18,6 @@ Copyright T. Dutoit, N. Moreau, 2008
 
 Python translation by Ediz Aldogan.
 '''
-
 import matplotlib.pyplot as plt
 # Set global figure parameter 
 # This makes all the background colors of figures white by default.
@@ -33,7 +32,6 @@ file contains the sentence "Paint the circuits" sampled at 8 kHz, with 16
 bits. (This sentence was taken from the Open Speech Repository on the
 web)
 '''
-
 # MATLAB normalizes the value between the range -1 and 1 with the function audioread.
 # However, Python reads the raw format which ranges between -32768 and 32767
 # To normalize we use the following equation: audio = audio_raw / 32768
@@ -61,7 +59,6 @@ position of the four vowels in this plot, since vowels usually have
 higher amplitude than other sounds. The vowel 'e' in "the", for instance,
 is approximately centered on sample 3500.
 '''
-
 # %%
 '''
 As such, however, the speech waveform is not "readable", even by an
@@ -71,7 +68,6 @@ For a better graphical result, we choose a wideband spectrogram, by
 imposing the length of each frame to be approximately 5 ms long (40
 samples) and a hamming weighting window.
 '''
-
 from scipy import signal
 
 def plot_spectrogram(audio, fs=8000):
@@ -108,14 +104,12 @@ easy to measure with precision, experts looking at such a spectrogram can
 actually often read it (i.e. guess the corresponding words). This clearly
 shows that formants are a good indicator of the underlying speech sounds.
 '''
-
 # %%
 '''
 2. Linear prediction synthesis of 30 ms of voiced speech
 Let us extract a 30 ms frame from a voiced part (i.e. 240 samples) of the
 speech file, and plot its samples. 
 '''
-
 # The following interval corresponds to the time interval of letter 'e' 
 # from the speech file.
 input_frame_for_letter_e = audio[3499:3739]
@@ -134,14 +128,12 @@ As expected this sound is approximately periodic (period=65 samples, i.e.
 apparent; in practice, no sequence of samples can be found more than once
 in the frame.
 '''
-
 # %%
 '''
 Now let us see the spectral content of this speech frame, by plotting its
 periodogram on 512 points (using a normalized frequency axis; remember 
 pi corresponds to Fs/2, i.e. to 4000 Hz here). 
 '''
-
 def plot_periodogram(frame, fs):
     """
     Replicates MATLAB's periodogram(input_frame, [], 512) function 
@@ -189,9 +181,7 @@ The fundamental frequency appears again at around 125 Hz. One can also
 roughly estimate the position of formants (peaks in the spectral
 envelope) at +- 300 Hz, 1400 Hz, 2700 Hz.
 '''
-
 # %%
-
 '''
 Let us now fit an LP model of order 10 to our voiced frame. We obtain
 the prediction coefficients (ai) and the variance of the residual signal
@@ -199,7 +189,6 @@ the prediction coefficients (ai) and the variance of the residual signal
 Notice we do not apply windowing prior to LP analysis now, as it has 
 no tutorial benefit. We will add it in subsequent Sections.
 '''
-
 def autocorrelation_calculation(input_frame, order):
     '''
     Takes in the 240 element frame and calculates the autocorrelation
@@ -356,7 +345,6 @@ print('sigma = ', sigma)
 print('')
 
 # %%
-
 '''
 The estimation algorithm inside LPC is called the Levinson-Durbin
 algorithm. It chooses the coefficients of an FIR filter A(z) so that when
@@ -367,7 +355,6 @@ this reason, the A(z) filter is termed as the "inverse" filter. Let us
 plot its frequency response (on 512 points), and superimpose it to that
 of the "synthesis" filter 1/A(z).
 '''
-
 # Synthesis filter is: 1 / A(z) (all-poles filter)
 # The 'b' (numerator) coefficients are 1, the 'a' (denominator) is our ai array
 W, H = signal.freqz(1, a_coefficients, worN=512)
@@ -389,7 +376,6 @@ plt.legend  ()
 plt.grid    (True)
 
 # %%
-
 '''
 In other words, the frequency response of the filter 1/A(z) matches the
 spectral amplitude envelope of the frame. Let us superimpose this
@@ -400,11 +386,9 @@ one-sided periodogram, which has twice the value of the two-sided
 periodogram in [0,Fs/2]. In order to force MATLAB to show the real value
 of the two-sided periodogram in [0, Fs/2], we claim Fs=2.
 '''
-
 plot_periodogram(input_frame_for_letter_e, 2) # fs=2
 plt.plot(W/np.pi,20*np.log10(sigma*abs(H)));
 plt.show()
-
 '''
 PHYSICAL AND MATHEMATICAL INTERPRETATION OF THE PLOTS:
 1. The Periodogram (Blue Line - The Source / Vocal Cords):
@@ -432,9 +416,7 @@ smooth FFT inverse tightly wraps around the highest energy peaks of the raw peri
 This perfectly isolates the macroscopic shape of the vocal tract (the formants) while 
 filtering out the microscopic vocal cord vibrations.
 '''
-
 # %%
-
 '''
 Formants appear again, much better than before. As a matter of fact, LP
 modelling acts as a parametric spectral estimator, resulting in a smooth
@@ -444,7 +426,6 @@ In other words, the LPC fit has automatically adjusted the poles of the
 synthesis filter close to the unit circle at angular positions chosen to
 imitate formant resonances.
 '''
-
 # a_coefficients = [1 a1 a2 ... ap] form A(z) and 1/A(z) as follows:
 # A(z) = 1 + a1*z^-1 + a2*z^-2 + ... + ap*z^-p
 # 1/A(z) = 1/(1 + a1*z^-1 + a2*z^-2 + ... + ap*z^-p)
@@ -455,7 +436,6 @@ def plot_zplane(b, a):
     b: numerator coefficients
     a: denominator coefficients
     """
-    
     # first equate the lengths by padding zeros, we shouldn'T miss the zeros.
     max_len = max(len(b), len(a))
     b_padded = np.pad(b, (0, max_len - len(b)), 'constant')
@@ -488,7 +468,6 @@ def plot_zplane(b, a):
     plt.legend()
 
 plot_zplane([1], a_coefficients)
-
 '''
 Are the poles inside the unit circle by coincidence?
 Absolutely not. This is a fundamental mathematical guarantee of the Yule-Walker 
@@ -498,14 +477,11 @@ Toeplitz structure of the Yule-Walker equations mathematically ensures that the
 roots of the resulting A(z) polynomial will always satisfy this stability criterion. 
 Otherwise, the synthesized speech would exponentially diverge to infinity.
 '''
-
 # %%
-
 '''
 If we apply the inverse of this filter to the input frame, we obtain the
 prediction residual.
 '''
-
 def plot_filter(b,a,x):
     # b = [b0 b1 ... bn]
     # a = [a0 a1 ... am]
@@ -523,28 +499,23 @@ def plot_filter(b,a,x):
 LP_residual = plot_filter(a_coefficients,[1],input_frame_for_letter_e)
 
 # %%
-
 '''
 Let us compare the spectrum of this residual to the original spectrum.
 The new spectrum is approximately flat; its fine spectral details,
 however, are the same as those of the analysis frame. In particular, its
 pitch and harmonics are preserved. 
 '''
-
 plot_periodogram(LP_residual, 2*np.pi)
 
 # %%
-
 '''
 For obvious reasons, applying the synthesis filter to this prediction
 residual results in the analysis frame itself (since the synthesis filter
 is the inverse of the inverse filter).
 '''
-
 output_frame = plot_filter([1], a_coefficients, LP_residual)
 
 # %%
-
 '''
 The LPC model actually models the prediction residual of voiced speech as
 an impulse train with adjustable pitch period and amplitude. For the
@@ -553,7 +524,6 @@ of pulses separated by 64 zeros (so as to impose a period of 65 samples).
 Notice we multiply the excitation by some gain so that its variance
 matches that of the residual signal. 
 '''
-
 excitation = np.zeros(240) # 240 element frame with 65 pitch period
 excitation[::65] = 1 # we have a one in every 65 index (0, 65, 130...)
 gain = sigma / np.sqrt(1/65)
@@ -563,7 +533,6 @@ plt.xlabel('Time (samples)')
 plt.ylabel('Amplitude')
 
 # %%
-
 '''
 Clearly, as far as the waveform is concerned, the LPC excitation is far
 from similar to the prediction residual. Its spectrum, however, has the
@@ -571,19 +540,15 @@ same broad features as that of the residual: flat envelope, and harmonic
 content corresponding to F0. The main difference is that the excitation
 spectrum is "over-harmonic" compared to the residual spectrum.
 '''
-
 plot_periodogram(gain*excitation, 2*np.pi)
 
 # %%
-
 '''
 Let us now use the synthesis filter to produce an artificial "e". 
 '''
-
 synt_frame = plot_filter(gain, a_coefficients, excitation)
 
 # %%
-
 '''
 Although the resulting waveform is obviously different from the original
 one (this is due to the fact that the LP model does not account for the
@@ -592,18 +557,15 @@ identical. Its fine harmonic details, though, also widely differ (the
 synthetic frame is actually "over-harmonic" compared to the analysis
 frame.
 '''
-
 plot_periodogram(synt_frame, 2*np.pi)
 
 # %%
-
 '''
 3. Linear prediction synthesis of 30 ms of unvoiced speech
 It is easy to apply the same process to an unvoiced frame, and compare
 the final spectra again. Let us first extract an unvoiced frame and plot
 it.
 '''
-
 # The following interval corresponds to the time interval of letter 'c'
 # from the word 'circuits'.
 input_frame_for_letter_c    = audio[4499:4739]
@@ -616,7 +578,6 @@ plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
 # %%
-
 '''
 As expected, no clear periodicity appears.
 
@@ -626,14 +587,12 @@ to have a better estimate power spectral densities, although with less
 frequency resolution than using a simple periodogram. The MATLAB |pwlech|
 function does  this, with 8 sub-frames by default and 50% overlap.
 '''
-
 def plot_welch(frame, fs=2*np.pi):
     """
     Replicates MATLAB's default pwelch(input_frame) behavior.
     Divides the signal into 8 sub-frames with 50% overlap using a Hamming window.
     Plots the Averaged Periodogram with normalized frequency.
     """
-    
     # 8 windows: 0-S, 0.5S-1.5S, ..., 3.5S-4.5S (53 samples each)
     L = len(frame)
     nperseg = int(L / 4.5)
@@ -662,14 +621,12 @@ def plot_welch(frame, fs=2*np.pi):
 plot_welch(input_frame_for_letter_c)
 
 # %%
-
 '''
 Let us now apply an LP model of order 10, and synthesize a new frame.
 Synthesis is performed by all-pole filtering a Gaussian white noise frame
 with standard deviation set to the prediction residual standard
 deviation, sigma.
 '''
-
 a_coefficients, sigma_squared = lpc_calculation(input_frame_for_letter_c, 10)
 sigma = np.sqrt(sigma_squared)
 # CHECK POINT - lpc coefficients, sigma_squared, sigma
@@ -688,23 +645,18 @@ excitation = np.random.randn(240) # Gaussian white noise
 synt_frame = plot_filter(sigma,a_coefficients,excitation)
 
 # %%
-
 '''
 The synthetic waveform has no sample in common with the original
 waveform.
 '''
-
 # %%
-
 '''
 The spectral envelope of this frame, however, is very similar to the
 original one.
 '''
-
 plot_welch(synt_frame)
 
 # %%
-
 '''
 4. Linear prediction synthesis of a speech file, with fixed F0
 We will now loop the previous operations for the complete speech file,
@@ -715,7 +667,6 @@ output speech file. Let us choose 200 Hz as synthesis F0, for
 convenience: this way each 10ms excitation frame contains exactly two
 pulses.
 '''
-
 synt_speech_V = []
 
 for i in range(int((len(audio)-160)/80)): # number of frames
@@ -747,12 +698,10 @@ plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
 # %%
-
 '''
 The output waveform basically contains a sequence of LP filter impulse
 responses. Let us zoom on 30 ms of LPC speech.
 '''
-
 plt.figure  (figsize=(10,8))
 plt.plot    (synt_speech_V[3299:3539])
 plt.title   ('Zooming on 30ms of LPC speech')
@@ -761,7 +710,6 @@ plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
 # %%
-
 '''
 It appears that in many cases they impulse responses have been cropped.
 As a matter of fact, since each synthesis frame was composed of two
@@ -772,7 +720,6 @@ synthesis filter are implicitly reset to zero. We can avoid this problem
 by maintaining the internal variables of the filter from the end of each
 frame to the beginning of the next one.
 '''
-
 synt_speech_V = []
 z = np.zeros(10) # internal variables of the synthesis filter
 
@@ -805,13 +752,11 @@ plt.grid    (True)
 
 
 # %%
-
 '''
 This time the end of each impulse response is properly added to the
 beginning of the next one, which results in more smoothly evolving
 periods.
 '''
-
 plt.figure  (figsize=(10,8))
 plt.plot    (synt_speech_V[3299:3539])
 plt.title   ('Zooming on 30ms of LPC speech (smoothly evolving periods)')
@@ -821,14 +766,12 @@ plt.grid    (True)
 plt.show()
 
 # %%
-
 '''
 If we want to synthesize speech with constant pitch period length
 different from a sub-multiple of 80 samples (say, 70 samples), we
 additionally need to take care of a possible pitch period offset in the
 excitation signal.
 '''
-
 synt_speech_V = []
 z = np.zeros(10) # internal variables of the synthesis filter
 offset = 0 # Offset of the next pitch pulse with respect to the 
@@ -883,12 +826,10 @@ plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
 # %%
-
 '''
 5. Unvoiced linear prediction synthesis of a speech file
 Synthesizing the complete speech file as LPC unvoiced speech is easy.
 '''
-
 synt_speech_V = []
 z = np.zeros(10) # internal variables of the synthesis filter
 
@@ -918,7 +859,6 @@ plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
 # %%
-
 '''
 6. Linear prediction synthesis of a speech file, with original F0
 We will now synthesize the same speech, using the original F0. We will
@@ -937,7 +877,6 @@ the ratio of this maximum by the variance of the residual.
 This simple algorithm is not optimal, but will do the job for this
 proof of concept.
 '''
-
 def pitch(frame):
     '''
     Estimates the fundamental period (in samples) of a 30 ms speech frame.
@@ -1019,18 +958,15 @@ plt.grid    (True)
 plt.show()
 
 # %%
-
 '''
 The resulting synthetic speech is intelligible. It shows the same
 formants as the original speech. It is therefore acoustically similar to
 the original, except for the additional buzzyness which has been added by
 the LP model.
 '''
-
 plot_spectrogram(synt_speech_LPC10)
 
 # %%
-
 '''
 It is easy to estimate the total bit-rate corresponding to this
 proof-of-concept: 42 bits are required for inaudible quantization of the
@@ -1038,9 +974,7 @@ prediction coefficients. Adding 7 bits for pitch and V/UV and 5 bits for
 gain gives 54 bits every 10ms: 5400 bits/s. LPC10 was normalized at 2400
 bits/s, which was achieved by using larger synthesis frames (22.5 ms).
 '''
-
 # %%
-
 '''
 7. CELP analysis-synthesis  of a speech file
 Our last step will be to replace the LPC10 excitation by a more realistic
@@ -1052,7 +986,6 @@ We start with 30 ms LP analysis frames, shifted every 5 ms, and a
 codebook size of 512 vectors, from which 10 components are chosen for
 every 5 ms synthesis frame.
 '''
-
 def find_Nbest_components(sig, codebook_vectors, N):
     """
     Finds the N best codebook components to represent the target signal.
@@ -1179,7 +1112,6 @@ plt.grid    (True)
 # A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
 
 # %%
-
 '''
 The resulting synthetic speech sounds more natural than in LPC10. 
 Plosives are much better rendered, and voiced sounds are no longer buzzy,
@@ -1190,9 +1122,7 @@ One can see that the closed loop optimization leads to excitation frames
 which can somehow differ from the LP residual, while the resulting
 synthetic speech is more similar to its original counterpart.
 '''
-
 # %%
-
 '''
 In the above script, though, each new frame was processed independently of
 past frames. Since voiced speech is strongly self-correlated, it makes sense
@@ -1308,14 +1238,11 @@ plt.grid    (True)
 # A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
 
 # %%
-
 '''
 The resulting synthetic speech is still similar to the original one,
 notwithstanding the reduction of the number of stochastic components.  
 '''
-
 # %%
-
 '''
 While the search for the best components in the previous scripts aims at 
 minimizing the energy of the difference between original and synthetic
@@ -1442,7 +1369,6 @@ synt_speech_CELP = np.array(synt_speech_CELP)
 # A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
 
 # %%
-
 '''
 While using less stochastic components as in the previous example,
 synthetic speech quality is maintained. 
@@ -1468,11 +1394,8 @@ plt.grid    (True)
 plt.show()
 
 # %%
-
 plot_spectrogram(synt_speech_CELP)
-
 # %%
-
 '''
 Appendix 1: MPE as a particular case of CELP
 It is easy to change the CELP script we have given above to make it
@@ -1595,7 +1518,6 @@ synt_speech_MPE = np.array(synt_speech_MPE)
 # A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
 
 # %%
-
 '''
 One can again roughly estimate the corresponding bit-rate. 
 Each frame requires : 30 bits [ai] + 7 bits
@@ -1607,3 +1529,55 @@ version of MPE, termed as Regular Pulse Excited,(RPE) which runs with a
 bit-rate of 13 kbits/s 
 '''
 # %%
+'''
+SUMMARY of the Modules:
+
+1. Examining the contents of a speech file. 
+2. Performing LP analysis and synthesis on a voiced frame.
+3. Performing LP analysis and synthesis on an unvoiced frame.
+4. Generalizing the approach to a complete speech file by 
+synthesizing all frames as voiced and imposing a constant 
+pitch.
+5. Generalizing the approach to a complete speech file by 
+synthesizing all frames as unvoiced.
+6. Generalizing the approach to a complete speech file by 
+using the original pitch and voicing information as in LPC10.
+7. Conluding the section by changing LPC10 into CELP.
+
+ADDITIONAL NOTES on MODULE 7:
+Cell 1 (Basic CELP): 
+  - Goal: Eliminate the robotic sound of the LPC10 vocoder. 
+  - Change: Replaced the rigid V/UV decision with an 
+    Analysis-by-Synthesis closed-loop search using a 
+    stochastic codebook (512 random noise vectors, N=10). 
+  - Result: Significantly more natural-sounding speech at the
+    cost of higher computation.
+
+Cell 2 (CELP + LTP): 
+  - Goal: Model the periodic nature of voiced speech more
+    efficiently. 
+  - Change: Cascaded a Long-Term Prediction (LTP) delay buffer
+    to reuse past excitations. 
+  - Result: Maintained high acoustic quality while reducing
+    the required stochastic components from N=10 to N=5,
+    saving bandwidth and processing power.
+
+Cell 3 (CELP + LTP + Perceptual Filter): 
+  - Goal: Exploit the masking properties of human hearing for
+    better data compression. 
+  - Change: Introduced a perceptual weighting filter
+    (gamma=0.8) into the error minimization loop to hide
+    mathematical errors in high-energy frequency bands. 
+  - Result: Drastically reduced required codebook components 
+    from N=5 to N=2 with no perceived loss in acoustic quality.
+
+Cell 4 (MPE): 
+  - Goal: Establish a deterministic, GSM-standard compatible
+    architecture. 
+  - Change: Replaced the stochastic noise codebook with an
+    identity matrix to adjust the position and amplitudes of
+    a limited number of isolated pulses. 
+  - Result: Reached a highly optimized, stable pipeline
+    operating at an estimated 19.4 kbps using exactly 5 pulses
+    per frame.
+'''
