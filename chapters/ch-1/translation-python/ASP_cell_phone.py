@@ -37,7 +37,7 @@ web)
 # To normalize we use the following equation: audio = audio_raw / 32768
 import numpy             as np
 from scipy.io            import wavfile
-sample_rate, audio_raw   = wavfile.read("speech.wav")
+sample_rate, audio_raw   = wavfile.read("../audio_samples/speech.wav")
 audio = audio_raw / 32768
 total_duration       = len(audio)
 speech_time          = np.arange(0, total_duration, 1)
@@ -333,6 +333,23 @@ def lpc_calculation(input_frame_for_letter_e, order):
 a_coefficients, sigma_squared = lpc_calculation(input_frame_for_letter_e, 10)
 sigma = np.sqrt(sigma_squared)
 
+<<<<<<< Updated upstream:Ch-1/ASP_cell_phone.py
+=======
+a_coefficients_toeplitz, sigma_squared_toeplitz = lpc_toeplitz(input_frame_for_letter_e, 10)
+sigmatoeplitz = np.sqrt(sigma_squared_toeplitz)
+
+# CHECK POINT - lpc coefficients, sigma_squared, sigma
+counter = 0
+print('lpc coefficients from toeplitz method are: ')
+for element in a_coefficients_toeplitz:
+    print('a_',counter,' = ', element, sep='')
+    counter += 1
+print('')
+print('sigma_squared = ', sigma_squared_toeplitz)
+print('sigma = ', sigmatoeplitz)
+print('')
+
+>>>>>>> Stashed changes:chapters/ch-1/translation-python/ASP_cell_phone.py
 # CHECK POINT - lpc coefficients, sigma_squared, sigma
 counter = 0
 print('lpc coefficients are: ')

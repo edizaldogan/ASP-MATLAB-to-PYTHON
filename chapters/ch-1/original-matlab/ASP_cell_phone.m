@@ -226,7 +226,7 @@ pwelch(input_frame);
 % with standard deviation set to the prediction residual standard
 % deviation, sigma.
 
-[ai, sigma_square]=lpc(input_frame,10);
+[ai, sigma_square]=lpc(input_frame,10)
 sigma=sqrt(sigma_square);
 excitation=randn(240,1);
 synt_frame=filter(sigma,ai,excitation);
@@ -743,7 +743,7 @@ for i=1:(length(speech)-frame_length+frame_shift)/frame_shift;
     ai = lpc(input_frame.*hamming(frame_length), 10);
   
     % Computing the coefficients of A(z/gamma)
-    ai_perceptual = ai.*(gamma.^(0:(length(ai)-1)) );
+    ai_perceptual = ai.*(gamma.^(0:(length(ai)-1)) )
 
     % Extracting frame_shift samples from the LPC analysis frame
     % and passing them through A(z)/A(z/gamma)
