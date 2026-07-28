@@ -250,7 +250,7 @@ hold off;
 % Let us now check the output of the PQMF filter bank when fed with 2
 % seconds of violin monophonic signal sampled at 44.100 Hz.
 
-[input_signal,Fs]=wavread('violin.wav');
+[input_signal, Fs] = audioread('../audio_samples/violin.wav');
 clf;
 specgram(input_signal,1024,Fs,256);
 soundsc(input_signal,Fs);
@@ -392,7 +392,7 @@ for i = 0:31
     PQMF32_Gfilters(i+1,:) = hn.*cos(t2);
 end
 
-[input_signal,Fs]=wavread('violin.wav');
+[input_signal, Fs] = audioread('../audio_samples/violin.wav');
 
 % Block-based sub-band filtering
 input_frame=zeros(512,1);
@@ -453,7 +453,7 @@ for i = 0:31
     PQMF32_Gfilters(i+1,:) = hn.*cos(t2);
 end
 
-[input_signal,Fs]=wavread('violin.wav');
+[input_signal, Fs] = audioread('../audio_samples/violin.wav');
 
 % Block-based sub-band analysis filtering
 input_frame=zeros(512,1);
