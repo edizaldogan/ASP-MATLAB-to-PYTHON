@@ -61,7 +61,7 @@ f0  = 0                     # Frequency (e.g. Hz) at time t=0.
 t1  = 4                     # Time at which f1 is specified.
 f1  = 4000                  # Frequency (e.g. Hz) of the waveform at time t1.
 input_signal = signal.chirp(t,f0,t1,f1)
-
+print(input_signal)
 # A audio player will be implemented here.
 
 # %%
@@ -91,5 +91,100 @@ def plot_spectrogram(audio, nfft, fs, window):
     plt.xlabel      ('Time (s)')
 
 plot_spectrogram(input_signal,1024,Fs,256)
+# %%
+
+'''
+Applying direct downsampling-upsampling by 2 results in replacing every
+other sample by zero. The result is that an artifact signal is added,
+whose spectrum is the quadrature mirror image of that of the chirp. Two
+sinusoids can be heard at any time. (Notice we multiply the signal by 2
+when upsampling, so that the power of the signal remains unchanged.)
+'''
+
+downsampled = input_signal[::2]
+print(downsampled)
+upsampled = np.zeros(2*len(downsampled))
+upsampled[::2]=2*downsampled
+print(upsampled)
+plot_spectrogram(upsampled,1024,Fs,256)
+'''
+Zeroing out half of the elements causes to lose half of the power of 
+the signal. That's why we multiply by two before upsampling. 
+Multiplying by two compensates the loss.
+Not multiplying by two causes a 6dB change on the spectrogram. The
+change can be observed by realising all the points moving upwards 
+(going above the red level). It pushes more points to pass the redness 
+threshold.
+By doing the above conversions we transform the input signal from the 
+form: [a,b,c,d,e,...] to the form [2a,0,2c,0,2e,...]
+The aim of doing this is to intentionally show what happens if no
+anti-aliasing filtering applied before sampling. We deliberately broke
+the signal to show the effect of missing proper filtering.
+
+Notice that we multiplied the input signal s[n]=[a,b,c,d,e,...] by the 
+array x = [2,0,2,0,2,...] whose elements are basically x[n] = 1 + cos(pi*n).
+s_new = s[n]+x[n] = s[n]+s[n]cos(pi*n) is the new signal.
+s[n] has a frequency spectrum that sweeps from 0Hz to 4000Hz.
+s[n]cos(pi*n)= has a frequency spectrum that sweeps from 4000Hz to 0Hz.
+w = 2*pi*f/fs = 2*pi*f/8000 = pi which yields f = 4000Hz.
+Multiplying by a cosine wave with frequency 4000Hz in time domain corresponds
+to shifting an the spectrum by an amount of 4000Hz in the frequency domain.
+So, the original chirp sweeps from 0 to 4000Hz while an image sweeps from
+0 to -4000Hz. Adding 4000 to this image we realize that it appears as
+sweeping from 4000Hz to 0Hz. That's why we observe a second red line on
+the opposite diagonal.
+'''
+# A audio player will be implemented here.
+
+# %%
+'''
+Adding a quarter-band filter after upsampling eliminates the image
+distortion, making sure that only one 
+sinusoid appears at any time. During the first half of the chirp, that
+sinusoid is the chirp itself; during the second half, the sinusoid is an
+alias, due to the quadrature mirror image of the chirp. 
+We design the synthesis filter as symmetric FIR, so as to avoid phase 
+distortion, and we set its order to 1000, so as to obtain high stop-band
+rejection (close to 80 dB). Notice the first 1000 samples are a transient.
+'''
+# b = fir1(n,Wn) uses a Hamming window to design an nth-order lowpass, 
+# bandpass, or multiband FIR filter with linear phase. The filter type 
+# depends on the number of elements of Wn.
+
+G0 = signal.firwin(1000, 1/2)
+W, H = signal.freqz(G0, 1, worN=512)
+
+plt.figure(figsize=(10, 8))
+plt.subplot(2, 1, 1)
+plt.plot(W/np.pi, 20*np.log10(np.abs(H)))
+plt.title('Magnitude')
+plt.xlabel('Normalized Frequency ($\\times \\pi$ rad/sample)')
+plt.ylabel('Magnitude (dB)')
+plt.yticks(np.arange(-160,20,20))
+plt.xticks(np.arange(0,1.1,0.1))
+plt.grid(True)
+
+plt.subplot(2, 1, 2)
+# Calculate phase in radians, unwrap to remove 2*pi discontinuities, 
+# convert to degrees.
+phase = np.unwrap(np.angle(H))*(180 / np.pi)
+plt.plot(W/np.pi, phase)
+plt.title('Phase')
+plt.xlabel('Normalized Frequency ($\\times \\pi$ rad/sample)')
+plt.ylabel('Phase (degrees)')
+plt.yticks(np.arange(-50000,0,10000))
+plt.xticks(np.arange(0,1.1,0.1))
+plt.grid(True)
+
+plt.tight_layout()
+
+# %%
+
+G0_output = signal.lfilter(G0,1,upsampled)
+# NB: The first 1000 samples are a filter transient reponse
+plot_spectrogram(G0_output[1000:],1024,Fs,512)
+
+# A audio player will be implemented here.
+
 # %%
 
