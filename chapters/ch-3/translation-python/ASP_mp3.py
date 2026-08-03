@@ -102,10 +102,8 @@ when upsampling, so that the power of the signal remains unchanged.)
 '''
 
 downsampled = input_signal[::2]
-print(downsampled)
 upsampled = np.zeros(2*len(downsampled))
 upsampled[::2]=2*downsampled
-print(upsampled)
 plot_spectrogram(upsampled,1024,Fs,256)
 '''
 Zeroing out half of the elements causes to lose half of the power of 
@@ -151,7 +149,7 @@ rejection (close to 80 dB). Notice the first 1000 samples are a transient.
 # bandpass, or multiband FIR filter with linear phase. The filter type 
 # depends on the number of elements of Wn.
 
-G0 = signal.firwin(1000, 1/2)
+G0 = signal.firwin(1001, 1/2)
 W, H = signal.freqz(G0, 1, worN=512)
 
 plt.figure(figsize=(10, 8))
@@ -187,4 +185,151 @@ plot_spectrogram(G0_output[1000:],1024,Fs,512)
 # A audio player will be implemented here.
 
 # %%
+'''
+Adding another quarter-band filter before downsampling removes the
+aliasing distortion, i.e. the alias in the second half of the chirp. This synthesis 
+filter can a priori be identical to the analysis filter.
+'''
+
+H0  = G0
+H0_output = signal.lfilter(H0,1,input_signal)
+downsampled = H0_output[::2]
+upsampled = np.zeros(2*len(downsampled))
+upsampled[::2] = 2*downsampled
+G0_output = signal.lfilter(G0,1,upsampled)
+
+# NB: The first 2000 samples are a filter transient reponse
+plot_spectrogram(G0_output[2000:],1024,Fs,256)
+
+# An audio player will be implemented here.
+
+# %%
+
+'''
+Using HF quarter-band filters instead of LF ones selects the second half
+of the chirp.
+'''
+G1 = signal.firwin(1001, 1/2, pass_zero='highpass')
+H1 = G1
+H1_output = signal.lfilter(H1,1,input_signal)
+downsampled = H1_output[::2]
+upsampled = np.zeros(2 * len(downsampled))
+upsampled[::2]=2*downsampled
+G1_output = signal.lfilter(G1,1,upsampled)
+
+plot_spectrogram(G1_output[2000:],1024,Fs,256)
+# An audio player will be implemented here.
+
+# %%
+
+'''
+We now examine the output of the 2-channel sub-band filter bank, by
+adding  the two signals obtained above.
+'''
+
+synt_signal = G0_output + G1_output
+plot_spectrogram(synt_signal[2000:],1024,Fs,256)
+# An audio player will be implemented here.
+
+# %%
+'''
+Perfect reconstruction is not achieved, as shown in the previous
+spectrogram. Closer examination of the error waveform shows that most of
+the error lies in the center of the signal (this is not shown in the
+spectrogram), i.e., for frequencies for which the H0 and H1 filters
+overlap: more important aliasing cannot be avoided in each band for these
+frequencies. 
+
+Shift synt_signal to account for the filters delay. A symmetric FIR
+filter of order N (length N+1) brings a delay of N/2 samples.
+'''
+error = synt_signal[1000:]-input_signal[:len(synt_signal)-1000]
+plt.figure(figsize=(10, 8))
+plt.plot(error)
+plt.title("Reconstruction Error")
+plt.xlabel("Samples")
+plt.ylabel("Amplitude")
+plt.grid(True)
+plt.show()
+
+# An audio player will be implemented here.
+
+# %%
+
+'''
+2. Two channel QMF filter bank
+Perfect reconstruction is possible even with non ideal filters (i.e. even
+with some aliasing in each band) provided the overall aliasing is canceled
+when adding the low-pass and high-pass sub-band signals.
+This, as we shall see, is mainly the responsibility of the analysis and
+synthesis filters. 
+
+(Johnston's type) QMF filters provide a solution for nearly perfect
+reconstruction. In this example, we use Johnston's "B-12" QMF. 
+'''
+H0_QMF=[-0.006443977, 0.02745539, -0.00758164, -0.0913825,  0.09808522, 0.4807962]
+H0_QMF_reverse=H0_QMF[::-1]
+print(H0_QMF_reverse)
+print(H0_QMF)
+H0_QMF_extended=H0_QMF + H0_QMF_reverse
+print(H0_QMF_extended)
+W,H0=signal.freqz(H0_QMF_extended,1, worN=512)
+
+vector = [1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1]
+H1_QMF=np.multiply(H0_QMF_extended, vector)
+W,H1=signal.freqz(H1_QMF,1, worN=512)
+
+plt.figure(figsize=(10,8))
+plt.plot(W/np.pi,20*np.log10(abs(H0)),color='blue',label='H0(f)')
+plt.plot(W/np.pi,20*np.log10(abs(H1)),'--',color='orange',label='H1(f)')
+plt.legend()
+plt.xlabel('Normalized frequency (*pi rad/sample)')
+plt.ylabel('Magnitude (dB)')
+
+# %%
+
+'''
+These filters are not very frequency selective (because their order is
+low), and will therefore allow important aliasing in each band.
+'''
+Fs=8000
+t= np.arange(0,4*Fs)/Fs  # Times at which to evaluate the waveform.
+input_signal=signal.chirp(t,0,4,4000)
+# LF band
+H0_output=signal.lfilter(H0_QMF_extended,1,input_signal)
+subband_0=H0_output[::2]
+upsampled = np.zeros(2*len(subband_0))
+upsampled[::2]=2*subband_0
+G0_QMF=H0_QMF_extended
+G0_output=signal.lfilter(G0_QMF,1,upsampled)
+plot_spectrogram(G0_output,1024,Fs,256)
+# An audio player will be implemented here.
+
+# %%
+# HF band
+
+H1_output=signal.lfilter(H1_QMF,1,input_signal)
+subband_1=H1_output[::2]
+upsampled = np.zeros(2*len(subband_0))
+upsampled[::2]=2*subband_1
+G1_QMF=-H1_QMF
+G1_output=signal.lfilter(G1_QMF,1,upsampled)
+
+plot_spectrogram(G1_output,1024,Fs,256)
+# An audio player will be implemented here.
+
+# %%
+'''
+Perfect reconstruction is now achieved, because the QMF analysis and
+synthesis filters are such that the aliasing in each band sum up to zero
+(more precisely, close to 0). 
+'''
+synt_signal=G0_output+G1_output
+plot_spectrogram(synt_signal,1024,Fs,256)
+# An audio player will be implemented here.
+
+# %%
+
+
+
 
