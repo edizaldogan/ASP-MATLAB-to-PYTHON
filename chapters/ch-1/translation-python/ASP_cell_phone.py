@@ -23,6 +23,10 @@ import matplotlib.pyplot as plt
 # This makes all the background colors of figures white by default.
 # (MATLAB equivalent: set(0,'defaultFigureColor','w'))
 plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams['axes.facecolor'] = 'white'
+plt.rcParams['savefig.facecolor'] = 'white' 
+
+DEBUG_MODE = False
 
 # %%
 '''
@@ -235,12 +239,13 @@ def lpc_calculation(input_frame_for_letter_e, order):
     autocorrelation_vector = autocorrelation_calculation(input_frame_for_letter_e, order)
 
     # CHECK POINT - autocorrelation vector
-    counter = 0
-    print('autocorrelation vector is: ')
-    for element in autocorrelation_vector:
-        print('R[',counter,'] = ', element, sep='')
-        counter += 1
-    print('')
+    if DEBUG_MODE:
+        counter = 0
+        print('autocorrelation vector is: ')
+        for element in autocorrelation_vector:
+            print('R[',counter,'] = ', element, sep='')
+            counter += 1
+        print('')
     
     R = [] # pxp matrix
     # start from row 1 to row p
@@ -258,17 +263,18 @@ def lpc_calculation(input_frame_for_letter_e, order):
         R.append(R_row_i)
     
     # CHECK POINT - autocorrelation matrix R
-    row_counter = 0
-    print('autocorrelation matrix (R) is: ')
-    for row in R:
-        col_counter = 0
-        for element in row:
-            value = abs(row_counter-col_counter)
-            print(f'R[{row_counter}][{col_counter}]=R[{value}]={element:>6.3f}', end=' | ')
-            col_counter += 1
+    if DEBUG_MODE:
+        row_counter = 0
+        print('autocorrelation matrix (R) is: ')
+        for row in R:
+            col_counter = 0
+            for element in row:
+                value = abs(row_counter-col_counter)
+                print(f'R[{row_counter}][{col_counter}]=R[{value}]={element:>6.3f}', end=' | ')
+                col_counter += 1
+            print('')
+            row_counter += 1
         print('')
-        row_counter += 1
-    print('')
 
     # Yule-Walker Equations expanded form: 
     # a1*R[k-1] + a2*R[k-2] +...+ ap*R[k-p] = -R[k] where k=1,2,...,order
@@ -282,12 +288,13 @@ def lpc_calculation(input_frame_for_letter_e, order):
         autocorrelation_vector[i] = -autocorrelation_vector[i]
     
     # CHECK POINT - Negated autocorrelation vector
-    counter = 0
-    print('Negated autocorrelation vector is: ')
-    for element in autocorrelation_vector:
-        print('R[',counter,'] = ', element, sep='')
-        counter += 1
-    print('')
+    if DEBUG_MODE:
+        counter = 0
+        print('Negated autocorrelation vector is: ')
+        for element in autocorrelation_vector:
+            print('R[',counter,'] = ', element, sep='')
+            counter += 1
+        print('')
 
     # Exclude the first term R[0]
     autocorrelation_vector.pop(0) # R[0] is taken out
@@ -296,12 +303,13 @@ def lpc_calculation(input_frame_for_letter_e, order):
     # a_v_rhs = -[R[1] R[2] ... R[p]]
 
     # CHECK POINT - Right hand side vector
-    counter = 1
-    print('Right hand side vector (a_v_rhs) is: ')
-    for element in a_v_rhs:
-        print('R[',counter,'] = ', element, sep='')
-        counter += 1
-    print('')
+    if DEBUG_MODE:
+        counter = 1
+        print('Right hand side vector (a_v_rhs) is: ')
+        for element in a_v_rhs:
+            print('R[',counter,'] = ', element, sep='')
+            counter += 1
+        print('')
 
     '''
     Now that R(autocorrelation matrix) and a_v_rhs(autocorrelation vector) are 
@@ -353,26 +361,28 @@ a_coefficients_toeplitz, sigma_squared_toeplitz = lpc_toeplitz(input_frame_for_l
 sigmatoeplitz = np.sqrt(sigma_squared_toeplitz)
 
 # CHECK POINT - lpc coefficients, sigma_squared, sigma
-counter = 0
-print('lpc coefficients from toeplitz method are: ')
-for element in a_coefficients_toeplitz:
-    print('a_',counter,' = ', element, sep='')
-    counter += 1
-print('')
-print('sigma_squared = ', sigma_squared_toeplitz)
-print('sigma = ', sigmatoeplitz)
-print('')
+if DEBUG_MODE:
+    counter = 0
+    print('lpc coefficients from toeplitz method are: ')
+    for element in a_coefficients_toeplitz:
+        print('a_',counter,' = ', element, sep='')
+        counter += 1
+    print('')
+    print('sigma_squared = ', sigma_squared_toeplitz)
+    print('sigma = ', sigmatoeplitz)
+    print('')
 
 # CHECK POINT - lpc coefficients, sigma_squared, sigma
-counter = 0
-print('lpc coefficients are: ')
-for element in a_coefficients:
-    print('a_',counter,' = ', element, sep='')
-    counter += 1
-print('')
-print('sigma_squared = ', sigma_squared)
-print('sigma = ', sigma)
-print('')
+if DEBUG_MODE:
+    counter = 0
+    print('lpc coefficients are: ')
+    for element in a_coefficients:
+        print('a_',counter,' = ', element, sep='')
+        counter += 1
+    print('')
+    print('sigma_squared = ', sigma_squared)
+    print('sigma = ', sigma)
+    print('')
 
 # %%
 '''
@@ -659,16 +669,18 @@ deviation, sigma.
 '''
 a_coefficients, sigma_squared = lpc_calculation(input_frame_for_letter_c, 10)
 sigma = np.sqrt(sigma_squared)
+
 # CHECK POINT - lpc coefficients, sigma_squared, sigma
-counter = 0
-print('lpc coefficients are: ')
-for element in a_coefficients:
-    print('a_',counter,' = ', element, sep='')
-    counter += 1
-print('')
-print('sigma_squared = ', sigma_squared)
-print('sigma = ', sigma)
-print('')
+if DEBUG_MODE:
+    counter = 0
+    print('lpc coefficients are: ')
+    for element in a_coefficients:
+        print('a_',counter,' = ', element, sep='')
+        counter += 1
+    print('')
+    print('sigma_squared = ', sigma_squared)
+    print('sigma = ', sigma)
+    print('')
 
 excitation = np.random.randn(240) # Gaussian white noise
 # excitation is passed throuhg the the filter that models the vocal tracts
