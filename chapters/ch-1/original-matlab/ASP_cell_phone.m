@@ -1,7 +1,14 @@
 %% Chapter 1 - How is speech processed in a cell phone conversation?
-% This is a companion file to the book "Applied Signal Processing",
-% by T. Dutoit and F. Marques, Springer 2008.
-%
+% This is a companion file to the book "Applied Signal Processing", 
+% by T.Dutoit and F. Marques, Springer 2008.
+% 
+% It is supposed to be run cell-by-cell, using the cell mode of 
+% MATLAB 6 and later versions. Search for "what are cells" in the 
+% product help of MATLAB to know how to use them.
+% 
+% This file uses the SIGNAL_PROCESSING toolbox of MATLAB.
+ 
+%%
 % In this script, we will see how LPC-based analysis-synthesis lies at the
 % very heart of mobile phone transmission of speech. We will first examine
 % the contents of a speech file, in Section 1. Then we will perform LP
@@ -12,7 +19,7 @@
 % in section 5, and finally by using the original pitch and voicing
 % information, in Section 6.
 %
-% Copyright T. Dutoit, N. Moreau, 2008
+% Copyright T. Dutoit, N. Moreau, 2007
 
 set(0,'defaultFigureColor','w')
 
@@ -21,9 +28,8 @@ set(0,'defaultFigureColor','w')
 % file contains the sentence "Paint the circuits" sampled at 8 kHz, with 16
 % bits. (This sentence was taken from the Open Speech Repository on the
 % web)
-%
-speech=audioread('speech.wav');
-figure;
+
+speech=wavread('speech.wav');
 plot(speech)
 xlabel('Time (samples)'); ylabel('Amplitude');
 soundsc(speech,8000);
@@ -60,14 +66,14 @@ specgram(speech,512,8000,hamming(40))
 % Let us extract a 30 ms frame from a voiced part (i.e. 240 samples) of the
 % speech file, and plot its samples. 
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 input_frame=speech(3500:3739);
 plot(input_frame);
 xlabel('Time (samples)'); ylabel('Amplitude');
 
 %%
 % As expected this sound is approximately periodic (period=65 samples, i.e.
-% 8 ms; fundamental frequency = 125 Hz). Notice, though, that this is only
+% 80 ms; fundamental frequency = 125 Hz). Notice, though, that this is only
 % apparent; in practice, no sequence of samples can be found more than once
 % in the frame.
 
@@ -204,7 +210,7 @@ periodogram(synt_frame,[],512);
 % the final spectra again. Let us first extract an unvoiced frame and plot
 % it.
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 input_frame=speech(4500:4739);
 plot(input_frame);
 xlabel('Time (samples)'); ylabel('Amplitude');
@@ -226,7 +232,7 @@ pwelch(input_frame);
 % with standard deviation set to the prediction residual standard
 % deviation, sigma.
 
-[ai, sigma_square]=lpc(input_frame,10)
+[ai, sigma_square]=lpc(input_frame,10);
 sigma=sqrt(sigma_square);
 excitation=randn(240,1);
 synt_frame=filter(sigma,ai,excitation);
@@ -252,7 +258,7 @@ pwelch(synt_frame);
 % convenience: this way each 10ms excitation frame contains exactly two
 % pulses.
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 synt_speech_V=[]; 
 
 for i=1:(length(speech)-160)/80; % number of frames
@@ -278,7 +284,6 @@ for i=1:(length(speech)-160)/80; % number of frames
 end
 
 plot(synt_speech_V);
-soundsc(synt_speech_V,8000);
 
 %%
 % The output waveform basically contains a sequence of LP filter impulse
@@ -296,7 +301,7 @@ xlabel('Time (samples)'); ylabel('Amplitude');
 % by maintaining the internal variables of the filter from the end of each
 % frame to the beginning of the next one.
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 synt_speech_V=[]; 
 
 z=zeros(10,1); % internal variables of the synthesis filter
@@ -336,7 +341,7 @@ xlabel('Time (samples)'); ylabel('Amplitude');
 % additionally need to take care of a possible pitch period offset in the
 % excitation signal.
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 synt_speech_V=[]; 
 z=zeros(10,1); 
 
@@ -389,7 +394,7 @@ soundsc(synt_speech_V,8000);
 %% 5. Unvoiced linear prediction synthesis of a speech file
 % Synthesizing the complete speech file as LPC unvoiced speech is easy.
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 synt_speech_UV=[]; 
 z=zeros(10,1); 
 
@@ -418,7 +423,7 @@ sound(synt_speech_UV,8000);
 % is similar to the LPC10 that of the coder (except we do not quantize
 % coefficients here).
 %
-% *Matlab function involved:*
+% *MATLAB function involved:*
 % 
 % * |T0=pitch(speech_frame)| : returns the pitch period T0 (in samples) of
 % a speech frame (T0 is set to zero when the frame is detected as
@@ -428,7 +433,7 @@ sound(synt_speech_UV,8000);
 % This simple algorithm is not optimal, but will do the job for this
 % proof of concept.
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 synt_speech_LPC10=[]; 
 z=zeros(10,1); 
 offset=0; 
@@ -502,7 +507,7 @@ specgram(synt_speech_LPC10,512,8000,hamming(40))
 % codebook size of 512 vectors, from which 10 components are chosen for
 % every 5 ms synthesis frame.
 %
-% *Matlab function involved:*
+% *MATLAB function involved:*
 % 
 % * |[gains, indices] = find_Nbest_components(signal, ...
 %                             codebook_vectors, codebook_norms , N)|
@@ -520,7 +525,7 @@ frame_shift=40; % length of the excitation and synthesis frames
 codebook_size = 512; % number of vectors in the codebook
 N_components= 10;  % number of codebook components per frame
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 
 % Initializing internal variables
 z_inv=zeros(10,1);  % inverse filter
@@ -606,7 +611,7 @@ codebook_size = 512; % number of vectors in the codebook
 N_components= 5;  % number of codebook components per frame
 LTP_max_delay=256; % maximum long-term prediction delay (in samples)
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 
 % Initializing internal variables
 z_inv=zeros(10,1);  % inverse filter
@@ -668,13 +673,8 @@ for i=1:(length(speech)-frame_length+frame_shift)/frame_shift;
     % Updating the excitation buffer for long-term prediction
     excitation_buffer(1:LTP_max_delay)=...
         excitation_buffer(1+frame_shift:LTP_max_delay+frame_shift);
-    % Correction by Toni Bonafonte, UPC
-    % from:
-    %     excitation_buffer(LTP_max_delay+1:LTP_max_delay+frame_shift)=...
-    %        synt_frame;
-    % to:
     excitation_buffer(LTP_max_delay+1:LTP_max_delay+frame_shift)=...
-        excitation;
+        synt_frame;
 
     % Screen output
     if rem(i, 10) == 0
@@ -718,7 +718,7 @@ N_components= 2;  % number of codebook components per frame
 LTP_max_delay=256; % maximum long-term prediction delay (in samples)
 gamma = 0.8;   % perceptual factor
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 
 % Initializing internal variables
 z_inv=zeros(10,1);  % inverse filter
@@ -743,7 +743,7 @@ for i=1:(length(speech)-frame_length+frame_shift)/frame_shift;
     ai = lpc(input_frame.*hamming(frame_length), 10);
   
     % Computing the coefficients of A(z/gamma)
-    ai_perceptual = ai.*(gamma.^(0:(length(ai)-1)) )
+    ai_perceptual = ai.*(gamma.^(0:(length(ai)-1)) );
 
     % Extracting frame_shift samples from the LPC analysis frame
     % and passing them through A(z)/A(z/gamma)
@@ -795,11 +795,6 @@ for i=1:(length(speech)-frame_length+frame_shift)/frame_shift;
     % Updating the excitation buffer for long-term prediction
     excitation_buffer(1:LTP_max_delay)=...
         excitation_buffer(1+frame_shift:LTP_max_delay+frame_shift);
-        % Correction by Toni Bonafonte, UPC
-    % from:
-    %     excitation_buffer(LTP_max_delay+1:LTP_max_delay+frame_shift)=...
-    %        synt_frame;
-    % to:
     excitation_buffer(LTP_max_delay+1:LTP_max_delay+frame_shift)=...
         synt_frame;
 
@@ -864,7 +859,7 @@ N_components= 5;  % number of codebook components per frame
 LTP_max_delay=256; % maximum long-term prediction delay (in samples)
 gamma = 0.8;   % perceptual factor
 
-speech=audioread('speech.wav');
+speech=wavread('speech.wav');
 
 % Initializing internal variables
 z_inv=zeros(10,1);  % inverse filter
@@ -938,13 +933,8 @@ for i=1:(length(speech)-frame_length+frame_shift)/frame_shift;
     % Updating the excitation buffer for long-term prediction
     excitation_buffer(1:LTP_max_delay)=...
         excitation_buffer(1+frame_shift:LTP_max_delay+frame_shift);
-    % Correction by Toni Bonafonte, UPC
-    % from:
-    %     excitation_buffer(LTP_max_delay+1:LTP_max_delay+frame_shift)=...
-    %        synt_frame;
-    % to:
     excitation_buffer(LTP_max_delay+1:LTP_max_delay+frame_shift)=...
-        excitation;
+        synt_frame;
 
     % Screen output
     if rem(i, 10) == 0

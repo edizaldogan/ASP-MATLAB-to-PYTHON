@@ -18,6 +18,7 @@ Copyright T. Dutoit, N. Moreau, 2008
 
 Python translation by Ediz Aldogan.
 '''
+
 import matplotlib.pyplot as plt
 # Set global figure parameter 
 # This makes all the background colors of figures white by default.
@@ -94,6 +95,25 @@ def plot_spectrogram(audio, fs=8000):
     plt.xlabel      ('Time (s)')
 
 plot_spectrogram(audio)
+
+ZOOM_EN = True
+if ZOOM_EN:
+    fs=8000
+    f, t, Sxx = signal.spectrogram(audio[500:1500], 
+                                    fs=fs,
+                                    window=np.hamming(40),
+                                    nperseg=40,
+                                    noverlap=20,
+                                    nfft=512)
+    plt.figure      (figsize=(10, 8))
+    # Python uses 'viridis' color map as default. 
+    # Instead we will use MATLAB's 'jet' colormap for exact visual match
+    plt.pcolormesh  (t, f, 10 * np.log10(Sxx), shading='auto', cmap='jet')
+    plt.title       ("Spectrogram Zoomed")
+    plt.ylabel      ('Frequency (Hz)')
+    plt.xlabel      ('Time (s)')
+    plt.ylim        (0,500)
+    plt.show        ()
 
 # %%
 '''
