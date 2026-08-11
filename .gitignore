@@ -220,3 +220,6 @@ __marimo__/
 
 # MATLAB 
 *.asv
+
+reports/
+chapters/ch-1/figures/

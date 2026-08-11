@@ -502,6 +502,55 @@ plot_spectrogram(output_signal,1024,Fs,256)
 # An audio player will be implemented here.
 
 # %%
+import numpy as np
+from scipy import signal
+import matplotlib.pyplot as plt
+
+def snr(sig, signal_plus_noise, max_shift):
+    sig_length = min(len(sig), len(signal_plus_noise))
+    sig_length = (sig_length // 2) * 2 
+    sig = sig[:sig_length]
+    signal_plus_noise = signal_plus_noise[:sig_length]
+
+    length = min(max(10 * max_shift, 1000), sig_length - 1)
+    half_len = length // 2
+    center = sig_length // 2
+    noisy_part = signal_plus_noise[center - half_len : center + half_len]
+    signal_part = sig[center - half_len : center + half_len]
+    cross_correlation = signal.correlate(noisy_part, signal_part)
+    zero_lag_idx = len(noisy_part) - 1
+    print(zero_lag_idx)
+    positive_lags = cross_correlation[zero_lag_idx : zero_lag_idx + max_shift + 1]
+    
+    shift = np.argmax(positive_lags)
+
+    tmp = signal_plus_noise[shift:]
+    noise = tmp - sig[:len(tmp)]
+
+    var_signal_dB = 10 * np.log10(np.maximum(np.var(sig), 1e-20))
+    var_noise_dB = 10 * np.log10(np.maximum(np.var(noise), 1e-20))
+    snr_value = var_signal_dB - var_noise_dB
+
+    return snr_value
+
+error = output_signal[511:] - audio[:-511]
+
+signal_w, signal_Pxx = signal.periodogram(audio[11000:12024], fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+error_Pxx_w, error_Pxx = signal.periodogram(error[11000:12024], fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+
+plt.figure(figsize=(10, 6))
+plt.plot(signal_w/np.pi*22050, 10 * np.log10(signal_Pxx), label='Signal PSD')
+plt.plot(error_Pxx_w/np.pi*22050, 10 * np.log10(error_Pxx), color='r', label='Error PSD')
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+snr_PQMF = snr(audio[:-511], output_signal[511:], 0)
+print(f"PQMF Filter Bank SNR: {snr_PQMF:.2f} dB")
+
+
 '''
 The power of the reconstruction error is about 85 dB below that of the
 signal. Notice the ouput is delayed by 511 samples (since H and G filters
@@ -518,55 +567,56 @@ estimate the noise. If |showplot| is specified, then the signal,
 signal_plus_noise, and error are plotted, and the SNR is printed on the
 plot.
 '''
-def snr(sig,signal_plus_noise,max_shift,showplot):
-    '''
-    [snr_value, shift] = snr(signal,signal_plus_noise, max_shift,showplot) returns the
-    signal-to-noise ratio computed from the input signals. |Max_shift| gives
-    the maximum time-shift (in samples) between signal and signal_plus_noise.
-    The actual time-shift (obtained from the maximum of the cross-correlation
-    and returned as |shift|) is taken into account to estimate the noise. If
-    signal are of different length, the shortest length is used.
-    If |showplot| is specified, then the signal, signal_plus_noise, and error 
-    are plotted, and the SNR is printed on the plot.
+
+'''
+import math
+def snr(sig,signal_plus_noise,max_shift):
+    # [snr_value, shift] = snr(signal,signal_plus_noise, max_shift,showplot) returns the
+    # signal-to-noise ratio computed from the input signals. |Max_shift| gives
+    # the maximum time-shift (in samples) between signal and signal_plus_noise.
+    # The actual time-shift (obtained from the maximum of the cross-correlation
+    # and returned as |shift|) is taken into account to estimate the noise. If
+    # signal are of different length, the shortest length is used.
+    # If |showplot| is specified, then the signal, signal_plus_noise, and error 
+    # are plotted, and the SNR is printed on the plot.
     
     T DUTOIT, 13:49 12/03/2007
-    '''
-    sig_length=np.min(len(sig),len(signal_plus_noise))
-    sig_length=np.floor(sig_length/2)*2 # make it even
-    sig=sig[1:sig_length]
-    signal_plus_noise=signal_plus_noise[1:sig_length]
 
-    len=np.min(np.max(10*max_shift,1000), sig_length-1)
-    half_len=np.floor(len/2)
-    center=np.floor(sig_length/2)
-    cross_correlation = signal.correlate(signal_plus_noise[center-half_len:center+half_len-1],sig[center-half_len:center+half_len-1],max_shift,'biased')
-    [max_value,max_lag] = np.max(cross_correlation[max_shift+1:2*max_shift+1])
+    sig_length=min(len(sig),len(signal_plus_noise))
+    sig_length=math.floor(sig_length/2)*2 # make it even
+    sig=sig[:sig_length]
+    signal_plus_noise=signal_plus_noise[:sig_length]
+
+    length=min(max(10*max_shift,1000), sig_length-1)
+    half_len=math.floor(length/2)
+    center=math.floor(sig_length/2)
+    noisy_part=signal_plus_noise[center-half_len-1:center+half_len-1]
+    signal_part=sig[center-half_len-1:center+half_len-1]
+    cross_correlation = signal.correlate(noisy_part,signal_part)
+    [max_value,max_lag] = np.argmax(cross_correlation[max_shift+1:2*max_shift+1])
     shift=max_lag-1
 
-    tmp=signal_plus_noise[1+shift:len(signal_plus_noise)]
-    noise=tmp-sig[1:len(tmp)]
+    tmp=signal_plus_noise[shift:]
+    noise=tmp-sig[:len(tmp)]
 
     # Uncomment this to see the signals on which the SNR is computed
-    # plot(signal(1:length(tmp))); hold on;plot(tmp,'r'); plot(noise,'g'); hold off;
-    '''
-    plt.plot(sig[1:len(tmp)])
-    plt.plot(tmp, 'red')
-    plt.plot(noise, 'green')
-    '''
+    # plt.plot(sig[1:len(tmp)])
+    # plt.plot(tmp, 'red')
+    # plt.plot(noise, 'green')
 
     var_signal_dB=10*np.log10(np.var(sig))
     var_noise_dB=10*np.log10(np.var(noise))
     snr_value=var_signal_dB-var_noise_dB
 
     # Alternative to nargin will be implemented
-    '''
-    if nargin==4:
-        plt.plot(sig[center-half_len:center+half_len-1], label='signal')
-        plt.plot(tmp[center-half_len:center+half_len-1],'r',label='signal+noise')
-        plt.plot(noise[center-half_len:center+half_len-1],'g', label='noise')
-        plt.legend()
-        plt.title('SNR = ', num2str(snr_value))
-    '''
+
+    # if nargin==4:
+    #    plt.plot(sig[center-half_len:center+half_len-1], label='signal')
+    #    plt.plot(tmp[center-half_len:center+half_len-1],'r',label='signal+noise')
+    #    plt.plot(noise[center-half_len:center+half_len-1],'g', label='noise')
+    #    plt.legend()
+    #    plt.title('SNR = ', num2str(snr_value))
+    
     return snr_value
 
 error = output_signal[511:]-audio[:-511]
@@ -574,8 +624,8 @@ error = output_signal[511:]-audio[:-511]
 signal_w, signal_Pxx = signal.periodogram(audio[11000:12024],fs=sample_rate,window=np.hamming(1024),detrend=False,nfft=1024)
 error_Pxx_w, error_Pxx = signal.periodogram(error[11000:12024],fs=sample_rate,window=np.hamming(1024),detrend=False,nfft=1024)
 
-plt.plot(signal_w/np.pi*22050,10*np.log10(signal_Pxx), label='Signal PSD')
-plt.plot(error_Pxx_w/np.pi*22050,10*np.log10(error_Pxx),'r','linewidth',2, label='Error PSD')
+plt.plot(signal_w,10*np.log10(signal_Pxx), label='Signal PSD')
+plt.plot(error_Pxx_w,10*np.log10(error_Pxx), label='Error PSD')
 plt.xlabel('Frequency (Hz)')
 plt.ylabel('Magnitude (dB)')
 plt.legend()
@@ -584,4 +634,198 @@ plt.grid(True)
 plt.show()
 snr_PQMF=snr(audio[:-511],output_signal[511:],0)
 
+'''
+
 # %%
+'''
+4. Filter banks and Lapped Transforms
+If the length of the filters used in M-channel sub-band filters were
+exactly M samples, one could easily see the operations performed
+simultaneously by the M analysis filters as a linear transform of
+successive non-overlapping M sample frames of the input signal.
+
+A 4-sample DFT, for instance, can implement a 4-channel filter bank
+whose subband filters are the time-reversed of the lines of the 4x4 DFT
+matrix. Applying it to a chirp is straightforward.
+'''
+
+Fs=8000
+f0 = 0
+t1 = 4
+f1 = 4000
+t  = np.arange(0,4*Fs)/Fs
+input_signal=signal.chirp(t,f0,t1,f1)
+
+output_signal = np.zeros(len(input_signal)) # we previously define the size
+for i in range(int(len(input_signal)/4)):
+
+    # creating a column vector with 4 samples
+    input_frame=input_signal[4*i:4*i+4]
+    
+    # producing one sample in each downsampled sub-band, i.e. band-pass
+    # filtering and downsampling all sub-bands in one operation.
+    subbands_sample=np.fft.fft(input_frame)
+    
+    # producing four samples of the filter bank output, i.e. upsampling, 
+    # band-pass filtering all sub-bands, and summing them in one operation. 
+    output_frame= np.real(np.fft.ifft(subbands_sample))
+    
+    # storing the output column vector in the output signal
+    output_signal[4*i:4*i+4]=output_frame
+
+# An audio player will be implemented here. (output_signal, Fs)
+
+# %%
+
+'''
+Since the underlying filters have complex coefficients, however, each
+sub-band signal is complex. What is more, this type of filter bank is not
+very frequency selective, as shown below. The frequency overlap between
+adjacent bands is about half the main lobe band-pass (as in the previous
+section on PQMF), but the side lobes are very high. This does not make it
+a good candidate for sub-band coding. 
+'''
+tmp = np.array([1,np.exp(-1j*np.pi/2),np.exp(-1j*np.pi),np.exp(-1j*3*np.pi/2)])
+DFT_matrix_4x4=np.vander(tmp, increasing=True)
+
+for i in range(4):
+    W, H = signal.freqz(DFT_matrix_4x4[i,:], 1, worN=512, whole=True)
+    horizontal_axis = np.maximum(20*np.log10(abs(H)), -50) # element wise maximum
+    plt.plot(W/np.pi,horizontal_axis)
+plt.ylim(-60,20)
+plt.xlabel('Normalized frequency (*pi rad/sample)')
+plt.ylabel('Magnitude (dB)')
+
+# %%
+
+'''
+In general, the length of the impulse responses of the analysis and
+synthesis filters used in sub-band coders is higher than the number M of
+channels.  The filtering operations, however, can still be
+implemented as the multiplication of L-sample frames with LxM or
+MxL matrices. 
+
+For example, the 32-channel PQMF filter-bank introduced in the previous
+Section, in which the length L of the impulse response of each filter is
+512 samples, can be efficiently implemented as follows (which is very much
+similar to the implementation of our previous DFT-based filter bank,
+with the addition of overlap).
+'''
+# Build the PQMF H and G filters
+# 16 to 537 element list:
+elements_16_to_528 = np.arange(16,528,1)
+hn = PQMF32_prototype()
+PQMF32_Gfilters = np.zeros((32, 512))
+
+for i in range(32):
+    t2 = np.multiply(((2*i+1)*np.pi/(2*32)),elements_16_to_528)
+    PQMF32_Gfilters[i,:] = np.multiply(hn, np.cos(t2)) # element wise multiplication
+
+sample_rate, audio_raw = wavfile.read('../audio_samples/violin.wav')
+input_signal = audio_raw / 32768
+
+# Block-based sub-band filtering
+input_frame=np.zeros(512)
+output_signal=np.zeros(np.size(input_signal))
+
+for i in range(int((len(input_signal)-512+32)/32)):
+    
+    # Overlap input_frames (column vectors)
+    input_frame=input_signal[i*32:i*32+512]
+
+    # Analysis filters and downsampling
+    # Since PQMF H filters are the time-reversed G filters, we use the G
+    # filters matrix to simulate analysis filtering
+    subbands_frame_i = np.matmul(PQMF32_Gfilters, input_frame)
+    
+    # Synthesis filters
+    output_frame = np.matmul(np.transpose(PQMF32_Gfilters),subbands_frame_i)
+
+    # Overlap output_frames (with delay of 511 samples)
+    output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
+
+# %%
+
+'''
+Obviously we get the same results as before, and the overall SNR is
+unchanged.
+'''
+error=output_signal-input_signal
+w, signal_psd = signal.periodogram(input_signal[11000:12024], fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+w, error_psd = signal.periodogram(error[11000:12024], fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+plt.plot(w/np.pi*22050,10*np.log10(np.maximum(signal_psd,1e-50)), label='Signal PSD')
+plt.plot(w/np.pi*22050,10*np.log10(np.maximum(error_psd,1e-50)),color='red',label='Error PSD')
+plt.xlim(0,22050)
+plt.legend()
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+plt.grid()
+
+snr_lapped=snr(input_signal[512:-512],output_signal[512:-512],0)
+
+# %%
+'''
+5. Perceptual audio coding
+The sub-band filtering process developed in the previous Sections
+transforms the original stream of samples at sampling frequency Fs into
+32 parallel sub-bands sampled at Fs/32. It does not by itself produce
+compression.
+
+Quantizing sub-band samples uniformly does not allow much transparency at
+low bit rates, as shown in the 4-bits per sub-band sample trial below
+(compression factor = 4). We use a mid-thread quantizer here, so as to
+encode low level signals to 0.
+'''
+elements_16_to_528 = np.arange(16,528,1)
+# Build the PQMF H and G filters
+hn=PQMF32_prototype()
+PQMF32_Gfilters = np.zeros((32, 512))
+for i in range(32):
+    t2 = np.multiply(((2*i+1)*np.pi/(2*32)),elements_16_to_528)
+    PQMF32_Gfilters[i,:] = np.multiply(hn,np.cos(t2))
+
+Fs, audio_raw = wavfile.read('../audio_samples/violin.wav')
+input_signal = audio_raw / 32768
+
+# Block-based sub-band analysis filtering
+input_frame=np.zeros(512)
+output_signal=np.zeros(np.size(input_signal))
+
+n_frames=(len(input_signal)-512+32)/32
+subbands = np.zeros((int(n_frames), 32))
+quantized_subbands = np.zeros((int(n_frames), 32))
+for i in range(int(n_frames)):
+     
+     # Overlap input_frames (column vectors)
+     input_frame=input_signal[i*32:i*32+512]
+ 
+     # Analysis filters and downsampling
+     # NB: we put sub-band signals in columns
+     subbands[i,:] = np.transpose(np.matmul(PQMF32_Gfilters,input_frame))
+ 
+     # Uniform quantization on 4 bits, using a mid-thread quantizer in
+     # [-1,+1] 
+     n_bits = 4
+     alpha = 2**(n_bits-1)
+     quantized_subbands[i,:] = (np.floor(alpha*subbands[i,:]+0.5))/alpha # mid-thread
+
+     # the |uencode| and |udecode| functions provided by MATLAB do not
+     # properly implement a mid-thread quantizer. Using them here (by
+     # uncommenting the next two lines results in tonal quantization noise.
+     # See Appendix 1 at the end of this script. 
+     # codes = uencode(subbands(i,:),4,1);
+     # quantized_subbands(i,:) = udecode(codes,4);
+ 
+     # Synthesis filters
+     output_frame = np.matmul(np.transpose(PQMF32_Gfilters),quantized_subbands[i,:])
+ 
+     # Overlap output_frames (with delay of 511 samples)
+     output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
+
+plot_spectrogram(output_signal,1024,Fs,256)
+# An audio player will be implemented here. (output_signal, Fs)
+
+# %%
+
+
+
