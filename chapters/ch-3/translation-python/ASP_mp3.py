@@ -8,6 +8,7 @@ import snr
 import PQMF32_prototype
 import MPEG1_psycho_acoustic_model1 as mpeg_pam
 import MPEG1_bit_allocation as mpeg_ba
+import sounddevice as sd
 
 # %%
 '''
@@ -68,8 +69,7 @@ f0  = 0                     # Frequency (e.g. Hz) at time t=0.
 t1  = 4                     # Time at which f1 is specified.
 f1  = 4000                  # Frequency (e.g. Hz) of the waveform at time t1.
 input_signal = signal.chirp(t,f0,t1,f1)
-print(input_signal)
-# A audio player will be implemented here.
+sd.play(input_signal,Fs)
 
 # %%
 spectrogram.plot_spectrogram(input_signal,1024,Fs,256)
@@ -114,7 +114,7 @@ So, the original chirp sweeps from 0 to 4000Hz while an image sweeps from
 sweeping from 4000Hz to 0Hz. That's why we observe a second red line on
 the opposite diagonal.
 '''
-# A audio player will be implemented here.
+sd.play(upsampled,Fs)
 
 # %%
 '''
@@ -163,8 +163,7 @@ plt.tight_layout()
 G0_output = signal.lfilter(G0,1,upsampled)
 # NB: The first 1000 samples are a filter transient reponse
 spectrogram.plot_spectrogram(G0_output[1000:],1024,Fs,512)
-
-# A audio player will be implemented here.
+sd.play(G0_output[1000:],Fs)
 
 # %%
 '''
@@ -182,8 +181,7 @@ G0_output = signal.lfilter(G0,1,upsampled)
 
 # NB: The first 2000 samples are a filter transient reponse
 spectrogram.plot_spectrogram(G0_output[2000:],1024,Fs,256)
-
-# An audio player will be implemented here.
+sd.play(G0_output[2000:],Fs)
 
 # %%
 
@@ -200,7 +198,7 @@ upsampled[::2]=2*downsampled
 G1_output = signal.lfilter(G1,1,upsampled)
 
 spectrogram.plot_spectrogram(G1_output[2000:],1024,Fs,256)
-# An audio player will be implemented here.
+sd.play(G1_output[2000:],Fs)
 
 # %%
 
@@ -211,7 +209,7 @@ adding  the two signals obtained above.
 
 synt_signal = G0_output + G1_output
 spectrogram.plot_spectrogram(synt_signal[2000:],1024,Fs,256)
-# An audio player will be implemented here.
+sd.play(synt_signal[2000:],Fs)
 
 # %%
 '''
@@ -232,8 +230,7 @@ plt.title("Reconstruction Error")
 plt.xlabel("Samples")
 plt.ylabel("Amplitude")
 plt.grid(True)
-
-# An audio player will be implemented here.
+sd.play(error,Fs)
 
 # %%
 
@@ -250,10 +247,7 @@ reconstruction. In this example, we use Johnston's "B-12" QMF.
 '''
 H0_QMF=[-0.006443977, 0.02745539, -0.00758164, -0.0913825,  0.09808522, 0.4807962]
 H0_QMF_reverse=H0_QMF[::-1]
-print(H0_QMF_reverse)
-print(H0_QMF)
 H0_QMF_extended=H0_QMF + H0_QMF_reverse
-print(H0_QMF_extended)
 W,H0=signal.freqz(H0_QMF_extended,1, worN=512)
 
 vector = [1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1]
@@ -284,7 +278,7 @@ upsampled[::2]=2*subband_0
 G0_QMF=H0_QMF_extended
 G0_output=signal.lfilter(G0_QMF,1,upsampled)
 spectrogram.plot_spectrogram(G0_output,1024,Fs,256)
-# An audio player will be implemented here.
+#sd.play(G0_output,Fs)
 
 # %%
 # HF band
@@ -297,7 +291,7 @@ G1_QMF=-H1_QMF
 G1_output=signal.lfilter(G1_QMF,1,upsampled)
 
 spectrogram.plot_spectrogram(G1_output,1024,Fs,256)
-# An audio player will be implemented here.
+#sd.play(G1_output,Fs)
 
 # %%
 '''
@@ -307,7 +301,7 @@ synthesis filters are such that the aliasing in each band sum up to zero
 '''
 synt_signal=G0_output+G1_output
 spectrogram.plot_spectrogram(synt_signal,1024,Fs,256)
-# An audio player will be implemented here.
+#sd.play(synt_signal,Fs)
 
 # %%
 '''
@@ -364,7 +358,7 @@ sample_rate, audio_raw = wavfile.read('../audio_samples/violin.wav')
 audio = audio_raw / 32768
 total_duration = len(audio)
 spectrogram.plot_spectrogram(audio,1024,Fs,256);
-# An audio player will be implemented here.
+sd.play(audio,Fs)
 
 # %%
 output_signal=np.zeros(len(audio))
@@ -388,7 +382,7 @@ As revealed by listening sub-band 3, isolated sub-band signals
 are very much aliased, because each  PQMF filter is not ideal. 
 '''
 spectrogram.plot_spectrogram(G3_output,1024,sample_rate,256)
-# An audio player will be implemented here.
+sd.play(G3_output,Fs)
 
 # %%
 '''
@@ -396,7 +390,7 @@ The PQMF filter bank makes sure aliasing in adjacent bands cancels itself
 when sub-bands are added. 
 '''
 spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
-# An audio player will be implemented here.
+sd.play(output_signal,Fs)
 
 # %%
 '''
@@ -467,7 +461,7 @@ for i in range(int(len(input_signal)/4)):
     # storing the output column vector in the output signal
     output_signal[4*i:4*i+4]=output_frame
 
-# An audio player will be implemented here. (output_signal, Fs)
+sd.play(output_signal,Fs)
 
 # %%
 
@@ -617,7 +611,7 @@ for i in range(int(n_frames)):
      output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
 
 spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
-# An audio player will be implemented here. (output_signal, Fs)
+sd.play(output_signal,Fs)
 
 # %%
 '''
@@ -699,7 +693,7 @@ for i in range(int(n_frames)):
     output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
 
 spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
-# An audio player will be implemented here. (output_signal, Fs)
+sd.play(output_signal,Fs)
 
 # %%
 '''
@@ -797,7 +791,7 @@ N_bits, SNR = mpeg_ba.MPEG1_bit_allocation(SMR, 192000)
 x_axis=np.arange(33)
 x_axis=(x_axis/32)*22050
 plt.stairs(SMR,x_axis ,label='SMR')
-plt.stairs(SNR,x_axis,linestyle='--',label='SNR')
+plt.stairs(SNR,x_axis,label='SNR')
 plt.xlim(0,22050)
 plt.ylim(-20,100)
 plt.legend()
@@ -856,7 +850,7 @@ for i in range(int(n_frames)):
     output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
 
 spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
-# An audio player will be implemented here. (output_signal, Fs)
+sd.play(output_signal,Fs)
 
 # %%
 '''
