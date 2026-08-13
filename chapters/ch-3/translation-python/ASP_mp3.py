@@ -357,8 +357,8 @@ seconds of violin monophonic signal sampled at 44.100 Hz.
 sample_rate, audio_raw = wavfile.read('../audio_samples/violin.wav')
 audio = audio_raw / 32768
 total_duration = len(audio)
-spectrogram.plot_spectrogram(audio,1024,Fs,256);
-sd.play(audio,Fs)
+spectrogram.plot_spectrogram(audio,1024,sample_rate,256);
+sd.play(audio_raw,sample_rate)
 
 # %%
 output_signal=np.zeros(len(audio))
@@ -382,15 +382,15 @@ As revealed by listening sub-band 3, isolated sub-band signals
 are very much aliased, because each  PQMF filter is not ideal. 
 '''
 spectrogram.plot_spectrogram(G3_output,1024,sample_rate,256)
-sd.play(G3_output,Fs)
+sd.play(G3_output,sample_rate)
 
 # %%
 '''
 The PQMF filter bank makes sure aliasing in adjacent bands cancels itself
 when sub-bands are added. 
 '''
-spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
-sd.play(output_signal,Fs)
+spectrogram.plot_spectrogram(output_signal,1024,sample_rate,256)
+sd.play(output_signal,sample_rate)
 
 # %%
 '''
