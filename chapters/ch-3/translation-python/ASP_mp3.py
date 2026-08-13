@@ -1,3 +1,14 @@
+
+from scipy import signal
+from scipy.io import wavfile
+import matplotlib.pyplot as plt
+import numpy as np
+import spectrogram
+import snr
+import PQMF32_prototype
+import MPEG1_psycho_acoustic_model1 as mpeg_pam
+import MPEG1_bit_allocation as mpeg_ba
+
 # %%
 '''
 Chapter 3 - How is sound processed in an MP3 player?
@@ -25,7 +36,6 @@ a perceptual quantizer for sub-band signals (Section 5).
 Copyright N. Moreau, T. Dutoit (2007)
 Python translation by Ediz Aldogan.
 '''
-import matplotlib.pyplot as plt
 # Set global figure parameter 
 # This makes all the background colors of figures white by default.
 # (MATLAB equivalent: set(0,'defaultFigureColor','w'))
@@ -51,9 +61,6 @@ Let us first generate a 4-seconds chirp signal (from 0 to 4 kHz) with a
 sampling rate of 8 kHz, which we will use as a reference throughout
 this Section.  
 '''
-from scipy import signal
-import numpy as np
-
 Fs = 8000
 # chirp(t0,f0,t1,f1) is a frequency-swept cosine generator.
 t   = np.arange(0,4*Fs)/Fs  # Times at which to evaluate the waveform.
@@ -65,32 +72,7 @@ print(input_signal)
 # A audio player will be implemented here.
 
 # %%
-'''
-argument order in old and new versions of spectrogram function: 
-OLD: [S, F, T] = specgram(x, nfft, fs, window, noverlap)
-NEW: [S, F, T] = spectrogram(x,win,nOverlap,freqSpec,Fs)
-'''
-# Notice we write detrend=False beacuse default value of detrend was 
-# detrend=constant which causes a DC component to appear near the 0Hz 
-# level. The bottom line shows up in red which is wrong.
-def plot_spectrogram(audio, nfft, fs, window):
-    f, t, Sxx = signal.spectrogram(audio, 
-                                   fs=fs,
-                                   window=np.hanning(window),
-                                   nperseg=window,
-                                   noverlap=window/2,
-                                   nfft=nfft,
-                                   detrend=False,
-                                   mode='magnitude')
-    plt.figure      (figsize=(10, 8))
-    # Python uses 'viridis' color map as default. 
-    # Instead we will use MATLAB's 'jet' colormap for exact visual match
-    plt.pcolormesh  (t, f, 20*np.log10(Sxx), shading='auto', cmap='jet')
-    plt.title       ("Spectrogram")
-    plt.ylabel      ('Frequency (Hz)')
-    plt.xlabel      ('Time (s)')
-
-plot_spectrogram(input_signal,1024,Fs,256)
+spectrogram.plot_spectrogram(input_signal,1024,Fs,256)
 # %%
 
 '''
@@ -104,7 +86,7 @@ when upsampling, so that the power of the signal remains unchanged.)
 downsampled = input_signal[::2]
 upsampled = np.zeros(2*len(downsampled))
 upsampled[::2]=2*downsampled
-plot_spectrogram(upsampled,1024,Fs,256)
+spectrogram.plot_spectrogram(upsampled,1024,Fs,256)
 '''
 Zeroing out half of the elements causes to lose half of the power of 
 the signal. That's why we multiply by two before upsampling. 
@@ -180,7 +162,7 @@ plt.tight_layout()
 
 G0_output = signal.lfilter(G0,1,upsampled)
 # NB: The first 1000 samples are a filter transient reponse
-plot_spectrogram(G0_output[1000:],1024,Fs,512)
+spectrogram.plot_spectrogram(G0_output[1000:],1024,Fs,512)
 
 # A audio player will be implemented here.
 
@@ -199,7 +181,7 @@ upsampled[::2] = 2*downsampled
 G0_output = signal.lfilter(G0,1,upsampled)
 
 # NB: The first 2000 samples are a filter transient reponse
-plot_spectrogram(G0_output[2000:],1024,Fs,256)
+spectrogram.plot_spectrogram(G0_output[2000:],1024,Fs,256)
 
 # An audio player will be implemented here.
 
@@ -217,7 +199,7 @@ upsampled = np.zeros(2 * len(downsampled))
 upsampled[::2]=2*downsampled
 G1_output = signal.lfilter(G1,1,upsampled)
 
-plot_spectrogram(G1_output[2000:],1024,Fs,256)
+spectrogram.plot_spectrogram(G1_output[2000:],1024,Fs,256)
 # An audio player will be implemented here.
 
 # %%
@@ -228,7 +210,7 @@ adding  the two signals obtained above.
 '''
 
 synt_signal = G0_output + G1_output
-plot_spectrogram(synt_signal[2000:],1024,Fs,256)
+spectrogram.plot_spectrogram(synt_signal[2000:],1024,Fs,256)
 # An audio player will be implemented here.
 
 # %%
@@ -250,7 +232,6 @@ plt.title("Reconstruction Error")
 plt.xlabel("Samples")
 plt.ylabel("Amplitude")
 plt.grid(True)
-plt.show()
 
 # An audio player will be implemented here.
 
@@ -302,7 +283,7 @@ upsampled = np.zeros(2*len(subband_0))
 upsampled[::2]=2*subband_0
 G0_QMF=H0_QMF_extended
 G0_output=signal.lfilter(G0_QMF,1,upsampled)
-plot_spectrogram(G0_output,1024,Fs,256)
+spectrogram.plot_spectrogram(G0_output,1024,Fs,256)
 # An audio player will be implemented here.
 
 # %%
@@ -315,7 +296,7 @@ upsampled[::2]=2*subband_1
 G1_QMF=-H1_QMF
 G1_output=signal.lfilter(G1_QMF,1,upsampled)
 
-plot_spectrogram(G1_output,1024,Fs,256)
+spectrogram.plot_spectrogram(G1_output,1024,Fs,256)
 # An audio player will be implemented here.
 
 # %%
@@ -325,7 +306,7 @@ synthesis filters are such that the aliasing in each band sum up to zero
 (more precisely, close to 0). 
 '''
 synt_signal=G0_output+G1_output
-plot_spectrogram(synt_signal,1024,Fs,256)
+spectrogram.plot_spectrogram(synt_signal,1024,Fs,256)
 # An audio player will be implemented here.
 
 # %%
@@ -341,91 +322,8 @@ low-pass symmetric filter of length 512 for building a 32-channel PQMF
 filter bank. This filter is used in the MPEG-1 Layer-I coder. Its
 normalized bandpass is 1/64 Hz and it satisfies the PR condition.  
 '''
-
-def PQMF32_prototype():
-    '''
-    hn = PQMF32_prototype returns in hn the impulse response of the prototype
-    low-pass symmetric filter of length 512 for building a 32-channel PQMF
-    filter bank. This filter is used in the MPEG-1 Layer-1 coder. Its
-    normalized bandpass is 1/64 Hz and satisfies the PR condition.   
-    '''
-    # Second half of the filter
-    temp = [0.202407,  0.202283,  0.201916,  0.201307,
-            0.200452,  0.199359,  0.198029,  0.196465,
-            0.194668,  0.192648,  0.190409,  0.187952,
-            0.185290,  0.182422,  0.179361,  0.176113,
-            0.172685,  0.169084,  0.165321,  0.161407,
-            0.157347,  0.153153,  0.148837,  0.144402,
-            0.139868,  0.135239,  0.130527,  0.125745,
-            0.120900,  0.116004,  0.111068,  0.106105,
-            0.101123,  0.096135,  0.091148,  0.086174,
-            0.081224,  0.076307,  0.071432,  0.066610,
-            0.061849,  0.057155,  0.052540,  0.048011,
-            0.043576,  0.039242,  0.035012,  0.030899,
-            0.026907,  0.023036,  0.019297,  0.015693,
-            0.012227,  0.008901,  0.005724,  0.002692,
-            -0.000189, -0.002919, -0.005495, -0.007917,
-            -0.010185, -0.012303, -0.014264, -0.016074,
-            -0.017733, -0.019243, -0.020608, -0.021827,
-            -0.022906, -0.023845, -0.024652, -0.025326,
-            -0.025873, -0.026300, -0.026604, -0.026799,
-            -0.026882, -0.026863, -0.026747, -0.026537,
-            -0.026238, -0.025855, -0.025399, -0.024867,
-            -0.024271, -0.023616, -0.022904, -0.022143,
-            -0.021336, -0.020492, -0.019613, -0.018706,
-            -0.017773, -0.016824, -0.015858, -0.014882,
-            -0.013900, -0.012915, -0.011936, -0.010960,
-            -0.009994, -0.009039, -0.008103, -0.007183,
-            -0.006285, -0.005411, -0.004564, -0.003744,
-            -0.002954, -0.002196, -0.001470, -0.000777,
-            -0.000121,  0.000499,  0.001084,  0.001632,
-            0.002142, 0.002616,  0.003051,  0.003453,
-            0.003814,  0.004141,  0.004435,  0.004691,
-            0.004915,  0.005106,  0.005265,  0.005395,
-            0.005495,  0.005565,  0.005611,  0.005629,
-            0.005624,  0.005597,  0.005549,  0.005481,
-            0.005397,  0.005292,  0.005176,  0.005044,
-            0.004901,  0.004745,  0.004580,  0.004408,
-            0.004227,  0.004041,  0.003852,  0.003658,
-            0.003461,  0.003264,  0.003067,  0.002870,
-            0.002673,  0.002479,  0.002287,  0.002101,
-            0.001918,  0.001740,  0.001567,  0.001400,
-            0.001238,  0.001082,  0.000936,  0.000793,
-            0.000658,  0.000531,  0.000413,  0.000299,
-            0.000194,  0.000097,  0.000005, -0.000078,
-            -0.000154, -0.000224, -0.000286, -0.000343,
-            -0.000394, -0.000440, -0.000477, -0.000510,
-            -0.000539, -0.000561, -0.000580, -0.000596,
-            -0.000604, -0.000612, -0.000615, -0.000615,
-            -0.000612, -0.000607, -0.000599, -0.000588,
-            -0.000575, -0.000561, -0.000545, -0.000529,
-            -0.000513, -0.000494, -0.000475, -0.000456,
-            -0.000434, -0.000415, -0.000397, -0.000375,
-            -0.000356, -0.000337, -0.000316, -0.000299,
-            -0.000281, -0.000262, -0.000245, -0.000229,
-            -0.000213, -0.000197, -0.000183, -0.000170,
-            -0.000156, -0.000143, -0.000132, -0.000121,
-            -0.000111, -0.000103, -0.000094, -0.000084,
-            -0.000078, -0.000070, -0.000065, -0.000057,
-            -0.000051, -0.000046, -0.000043, -0.000038,
-            -0.000035, -0.000030, -0.000027, -0.000024,
-            -0.000022, -0.000019, -0.000019, -0.000016,
-            -0.000013, -0.000013, -0.000011, -0.000011,
-            -0.000008, -0.000008, -0.000005, -0.000005,
-            -0.000005, -0.000005, -0.000003, -0.000003,
-            -0.000003, -0.000003, -0.000003, -0.000003]
-
-    # Full symmetric filter response
-    a = [0]
-    temp_reversed = temp[::-1]
-    temp_reversed.pop()
-    hn = a+temp_reversed+temp
-    print(hn)
-    return hn
-
-
 # Load the prototype lowpass filter
-hn = PQMF32_prototype()
+hn = PQMF32_prototype.PQMF32_prototype()
 
 # %%
 # Build 32 cosine modulated filters centered on normalized frequencies
@@ -462,11 +360,10 @@ not necessary to multiply upsampled sub-band signals by 32.
 Let us now check the output of the PQMF filter bank when fed with 2
 seconds of violin monophonic signal sampled at 44.100 Hz.
 '''
-from scipy.io import wavfile
 sample_rate, audio_raw = wavfile.read('../audio_samples/violin.wav')
 audio = audio_raw / 32768
 total_duration = len(audio)
-plot_spectrogram(audio,1024,Fs,256);
+spectrogram.plot_spectrogram(audio,1024,Fs,256);
 # An audio player will be implemented here.
 
 # %%
@@ -490,7 +387,7 @@ for i in range(32):
 As revealed by listening sub-band 3, isolated sub-band signals
 are very much aliased, because each  PQMF filter is not ideal. 
 '''
-plot_spectrogram(G3_output,1024,sample_rate,256)
+spectrogram.plot_spectrogram(G3_output,1024,sample_rate,256)
 # An audio player will be implemented here.
 
 # %%
@@ -498,59 +395,10 @@ plot_spectrogram(G3_output,1024,sample_rate,256)
 The PQMF filter bank makes sure aliasing in adjacent bands cancels itself
 when sub-bands are added. 
 '''
-plot_spectrogram(output_signal,1024,Fs,256)
+spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
 # An audio player will be implemented here.
 
 # %%
-import numpy as np
-from scipy import signal
-import matplotlib.pyplot as plt
-
-def snr(sig, signal_plus_noise, max_shift):
-    sig_length = min(len(sig), len(signal_plus_noise))
-    sig_length = (sig_length // 2) * 2 
-    sig = sig[:sig_length]
-    signal_plus_noise = signal_plus_noise[:sig_length]
-
-    length = min(max(10 * max_shift, 1000), sig_length - 1)
-    half_len = length // 2
-    center = sig_length // 2
-    noisy_part = signal_plus_noise[center - half_len : center + half_len]
-    signal_part = sig[center - half_len : center + half_len]
-    cross_correlation = signal.correlate(noisy_part, signal_part)
-    zero_lag_idx = len(noisy_part) - 1
-    print(zero_lag_idx)
-    positive_lags = cross_correlation[zero_lag_idx : zero_lag_idx + max_shift + 1]
-    
-    shift = np.argmax(positive_lags)
-
-    tmp = signal_plus_noise[shift:]
-    noise = tmp - sig[:len(tmp)]
-
-    var_signal_dB = 10 * np.log10(np.maximum(np.var(sig), 1e-20))
-    var_noise_dB = 10 * np.log10(np.maximum(np.var(noise), 1e-20))
-    snr_value = var_signal_dB - var_noise_dB
-
-    return snr_value
-
-error = output_signal[511:] - audio[:-511]
-
-signal_w, signal_Pxx = signal.periodogram(audio[11000:12024], fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
-error_Pxx_w, error_Pxx = signal.periodogram(error[11000:12024], fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
-
-plt.figure(figsize=(10, 6))
-plt.plot(signal_w/np.pi*22050, 10 * np.log10(signal_Pxx), label='Signal PSD')
-plt.plot(error_Pxx_w/np.pi*22050, 10 * np.log10(error_Pxx), color='r', label='Error PSD')
-plt.xlabel('Frequency (Hz)')
-plt.ylabel('Magnitude (dB)')
-plt.legend()
-plt.grid(True)
-plt.show()
-
-snr_PQMF = snr(audio[:-511], output_signal[511:], 0)
-print(f"PQMF Filter Bank SNR: {snr_PQMF:.2f} dB")
-
-
 '''
 The power of the reconstruction error is about 85 dB below that of the
 signal. Notice the ouput is delayed by 511 samples (since H and G filters
@@ -567,74 +415,20 @@ estimate the noise. If |showplot| is specified, then the signal,
 signal_plus_noise, and error are plotted, and the SNR is printed on the
 plot.
 '''
+error = output_signal[511:] - audio[:-511]
 
-'''
-import math
-def snr(sig,signal_plus_noise,max_shift):
-    # [snr_value, shift] = snr(signal,signal_plus_noise, max_shift,showplot) returns the
-    # signal-to-noise ratio computed from the input signals. |Max_shift| gives
-    # the maximum time-shift (in samples) between signal and signal_plus_noise.
-    # The actual time-shift (obtained from the maximum of the cross-correlation
-    # and returned as |shift|) is taken into account to estimate the noise. If
-    # signal are of different length, the shortest length is used.
-    # If |showplot| is specified, then the signal, signal_plus_noise, and error 
-    # are plotted, and the SNR is printed on the plot.
-    
-    T DUTOIT, 13:49 12/03/2007
+signal_w, signal_Pxx = signal.periodogram(audio[11000:12024], fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+error_Pxx_w, error_Pxx = signal.periodogram(error[11000:12024], fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
 
-    sig_length=min(len(sig),len(signal_plus_noise))
-    sig_length=math.floor(sig_length/2)*2 # make it even
-    sig=sig[:sig_length]
-    signal_plus_noise=signal_plus_noise[:sig_length]
-
-    length=min(max(10*max_shift,1000), sig_length-1)
-    half_len=math.floor(length/2)
-    center=math.floor(sig_length/2)
-    noisy_part=signal_plus_noise[center-half_len-1:center+half_len-1]
-    signal_part=sig[center-half_len-1:center+half_len-1]
-    cross_correlation = signal.correlate(noisy_part,signal_part)
-    [max_value,max_lag] = np.argmax(cross_correlation[max_shift+1:2*max_shift+1])
-    shift=max_lag-1
-
-    tmp=signal_plus_noise[shift:]
-    noise=tmp-sig[:len(tmp)]
-
-    # Uncomment this to see the signals on which the SNR is computed
-    # plt.plot(sig[1:len(tmp)])
-    # plt.plot(tmp, 'red')
-    # plt.plot(noise, 'green')
-
-    var_signal_dB=10*np.log10(np.var(sig))
-    var_noise_dB=10*np.log10(np.var(noise))
-    snr_value=var_signal_dB-var_noise_dB
-
-    # Alternative to nargin will be implemented
-
-    # if nargin==4:
-    #    plt.plot(sig[center-half_len:center+half_len-1], label='signal')
-    #    plt.plot(tmp[center-half_len:center+half_len-1],'r',label='signal+noise')
-    #    plt.plot(noise[center-half_len:center+half_len-1],'g', label='noise')
-    #    plt.legend()
-    #    plt.title('SNR = ', num2str(snr_value))
-    
-    return snr_value
-
-error = output_signal[511:]-audio[:-511]
-
-signal_w, signal_Pxx = signal.periodogram(audio[11000:12024],fs=sample_rate,window=np.hamming(1024),detrend=False,nfft=1024)
-error_Pxx_w, error_Pxx = signal.periodogram(error[11000:12024],fs=sample_rate,window=np.hamming(1024),detrend=False,nfft=1024)
-
-plt.plot(signal_w,10*np.log10(signal_Pxx), label='Signal PSD')
-plt.plot(error_Pxx_w,10*np.log10(error_Pxx), label='Error PSD')
+plt.figure(figsize=(10, 6))
+plt.plot(signal_w/np.pi*22050, 10 * np.log10(signal_Pxx), label='Signal PSD')
+plt.plot(error_Pxx_w/np.pi*22050, 10 * np.log10(error_Pxx), color='r', label='Error PSD')
 plt.xlabel('Frequency (Hz)')
 plt.ylabel('Magnitude (dB)')
 plt.legend()
-plt.xlim(0, 22050)
 plt.grid(True)
-plt.show()
-snr_PQMF=snr(audio[:-511],output_signal[511:],0)
-
-'''
+snr_PQMF = snr.snr(audio[:-511], output_signal[511:], 0)
+print(f"PQMF Filter Bank SNR: {snr_PQMF:.2f} dB")
 
 # %%
 '''
@@ -714,7 +508,7 @@ with the addition of overlap).
 # Build the PQMF H and G filters
 # 16 to 537 element list:
 elements_16_to_528 = np.arange(16,528,1)
-hn = PQMF32_prototype()
+hn = PQMF32_prototype.PQMF32_prototype()
 PQMF32_Gfilters = np.zeros((32, 512))
 
 for i in range(32):
@@ -761,7 +555,7 @@ plt.xlabel('Frequency (Hz)')
 plt.ylabel('Magnitude (dB)')
 plt.grid()
 
-snr_lapped=snr(input_signal[512:-512],output_signal[512:-512],0)
+snr_lapped=snr.snr(input_signal[512:-512],output_signal[512:-512],0)
 
 # %%
 '''
@@ -778,7 +572,7 @@ encode low level signals to 0.
 '''
 elements_16_to_528 = np.arange(16,528,1)
 # Build the PQMF H and G filters
-hn=PQMF32_prototype()
+hn=PQMF32_prototype.PQMF32_prototype()
 PQMF32_Gfilters = np.zeros((32, 512))
 for i in range(32):
     t2 = np.multiply(((2*i+1)*np.pi/(2*32)),elements_16_to_528)
@@ -822,10 +616,354 @@ for i in range(int(n_frames)):
      # Overlap output_frames (with delay of 511 samples)
      output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
 
-plot_spectrogram(output_signal,1024,Fs,256)
+spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
 # An audio player will be implemented here. (output_signal, Fs)
 
 # %%
+'''
+The resulting output signal is degraded. It exhibits a strong high
+frequency tonal noise. This is typical of sub-band coding, in which
+quantization errors are produced at Fs/32, i.e. 1378 Hz.
+The SNR falls down to 10.3 dB.
 
+NB: no delay compensation required, as the first sub-band samples
+produced by the lapped transform correspond to the 512th original
+samples.
+'''
+error=output_signal-input_signal
 
+w,signal_psd=signal.periodogram(input_signal[11000:12024],fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+w,error_psd=signal.periodogram(error[11000:12024],fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+plt.plot(w/np.pi*22050,10*np.log10(signal_psd), label='Signal PSD')
+plt.plot(w/np.pi*22050,10*np.log10(error_psd),color='red', label='Error PSD')
+plt.xlim(0,22050)
+plt.legend()
+plt.xlabel('Frequency (Hz)') 
+plt.ylabel('Magnitude (dB)')
 
+snr_4bits=snr.snr(input_signal[512:-512],output_signal[512:-512],0)
+
+# %%
+'''
+One can see that the fixed [-1,+1] quantizer range does not adequately
+account for the  variation of sub-band signal level across sub-bands, 
+as well as in time.  
+'''
+# [100:200,1] grabs secodn column (python is 0-indexed!)
+plt.plot(quantized_subbands[99:200,1],label='Sub-band #2, quantized')
+plt.plot(subbands[99:200,1],color='red',linestyle='dashed',label='Sub-band#2, original')
+plt.legend()
+plt.xlabel('Time (samples at Fs/32)')
+plt.ylabel('Amplitude')
+
+# %%
+'''
+An obvious means of enhancing its quality is therefore to apply a
+scale factor to each sub-band quantizer. As in the MPEG-1 Layer-I coder,
+we compute a new scale factor every 12 sub-band sample (i.e. every 
+32x12 = 384 sample at the original sample rate).
+Quantization errors are much reduced (here in sub-band #2).
+'''
+# Adaptive quantization per blocks of 12 frames
+n_frames=np.trunc(n_frames/12)*12 # trunc rounds each element to the nearest integer towards zero
+for k in range(0,int(n_frames),12):
+    # Computing scale factors in each 12 samples sub-band chunk
+    scale_factors=np.max(np.abs(subbands[k:k+12,:]),axis=0)
+    
+    # Adaptive uniform quantization on 4 bits, using a mid-thread quantizer in
+    # [-Max,+Max] 
+    for j in range(32): # for each sub-band
+ 
+        n_bits = 4
+        alpha = 2**(n_bits-1)/scale_factors[j]
+        quantized_subbands[k:k+12,j] = (np.floor(alpha*subbands[k:k+12,j]+0.5))/alpha # mid-thread
+
+plt.plot(quantized_subbands[99:200,1], label='Sub-band #2, quantized')
+plt.plot(subbands[99:200,1], color='red',linestyle='dashed',label='Sub-band#2, original')
+plt.legend()
+plt.xlabel('Time (samples at Fs/32)')
+plt.ylabel('Amplitude')
+
+# %%
+'''
+The resulting signal is of much higher quality.
+'''
+# Signal synthesis
+output_signal=np.zeros(np.size(input_signal))
+for i in range(int(n_frames)):
+
+    # Synthesis filters
+    output_frame = np.matmul(np.transpose(PQMF32_Gfilters),np.transpose(quantized_subbands[i,:]))
+
+    # Overlap output_frames (with delay of 511 samples)
+    output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
+
+spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
+# An audio player will be implemented here. (output_signal, Fs)
+
+# %%
+'''
+The overall SNR has increased to 25 dB.
+'''
+error=output_signal-input_signal
+w,signal_psd=signal.periodogram(input_signal[11000:12024],fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+w,error_psd=signal.periodogram(error[11000:12024],fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+plt.plot(w/np.pi*22050,10*np.log10(signal_psd),label='Signal PSD')
+plt.plot(w/np.pi*22050,10*np.log10(error_psd),color='red',label='Error PSD')
+plt.xlim(0,22050)
+plt.legend()
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+
+snr_4bits_scaled=snr.snr(input_signal[512:-512],output_signal[512:-512],0)
+
+# %%
+'''
+The ultimate refinement, which is by far the most effective and results
+from years of audio research, consists in accepting more quantization
+noise (by allocating less bits, and thereby accepting a higher SNR) in
+frequency bands where it will not be heard, and using these extra bits
+for more perceptually prominent bands. The required perceptual
+information is provided by a psycho-acoustical model.
+
+For any 512-sample frame taken from the input signal, the MPEG-1 Layer-I
+psycho-acoustical model computes a global masking threshold, obtained by
+first detecting prominent tonal and noise maskers, separately, and
+combining their individual thresholds. The maximum of this global
+threshold and the absolute auditory threshold is then taken as the final
+threshold. 
+
+*MATLAB function involved:*
+ 
+* |function [SMR, min_threshold_subband, masking_threshold] = ...
+    MPEG1_psycho_acoustic_model1(frame)|
+Computes the masking threshold (in dB) corresponding to psycho-acoustic
+model #1 used in MPEG-1 Audio (cf  ISO/CEI  norm 11172-3:1993 (F), pp.
+122-128). 
+Input |frame| length should be 512 samples. 
+|min_threshold_subband| returns the minimun of |masking threshold| in each
+of the 32 sub-bands. 
+|SMR| returns 27 signal-to-mask ratios (in dB);
+|SMR|(28-32) are not used. 
+'''
+LTq_i = np.array([])
+LTq_k = np.array([])
+Table_z = np.array([])
+Frontieres_i = np.array([])
+Frontieres_k = np.array([])
+Larg_f = np.array([])
+
+frame=input_signal[11000:11512]
+SMR, min_threshold,frame_psd_dBSPL,masking_threshold= mpeg_pam.MPEG1_psycho_acoustic_model1(frame)
+# NB: the power levels returned by this function assume that a full-scale 
+# signal (in [-1,+1]) corresponds to 96 DB SPL
+f_zeros = np.arange(256)
+f = f_zeros/512*44100
+auditory_threshold_dB = 3.64*((f/1000)**-0.8)- 6.5*np.exp(-0.6*((f/1000)-3.3)**2) + 0.001*((f/1000)**4)
+plt.plot(f, frame_psd_dBSPL,label='Signal PSD')
+plt.plot(f, min_threshold,'.r',label='Min. threshold per sub-band')
+plt.plot(f, auditory_threshold_dB, '-.k', label='Absolute threshold')
+plt.ylim(-20, 100)
+plt.legend()
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+
+# %%
+'''
+Signal-to-Mask Ratios (SMR) are computed for each band, in a very
+conservative way (as the ratio of the maximum of the signal PSD to the
+minimum of the masking threshold in each band).  
+Bit allocation is performed by an iterative algorithm which gives
+priority to sub-bands with higher SMR. 
+The resulting SNR in each sub-band should be greater or equal to
+the SMR, so as to push the noise level below the masking threshold.
+
+*MATLAB function involved:*
+ 
+* |function [N_bits,SNR] = MPEG1_bit_allocation(SMR, bit_rate)|
+Implements a simplified bit allocation greedy algorithm.
+|SMR| is the signal-to-mask ratios in each sub-band,
+as defined by the MPEG1 psycho-acoustic model. 
+|bit_rate| is in kbits/s.
+|N_bits| is the number is bits in each sub_band.
+|SNR| is the maximum SNR in each sub-band after quantization, i.e. the
+SNR assuming each sub-band contains a full-range sinusoid.
+NB: N_bits and SNR are set to zero for sub-bands 28 to 32.
+'''
+# Allocating bits for a target bit rate of 192 kbits/s (compression
+# ratio = 4)
+N_bits, SNR = mpeg_ba.MPEG1_bit_allocation(SMR, 192000)
+
+x_axis=np.arange(33)
+x_axis=(x_axis/32)*22050
+plt.stairs(SMR,x_axis ,label='SMR')
+plt.stairs(SNR,x_axis,linestyle='--',label='SNR')
+plt.xlim(0,22050)
+plt.ylim(-20,100)
+plt.legend()
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+
+# %%
+'''
+Let us test this on the complete signal, adding perceptual bit allocation
+to adaptive uniform quantization. 
+Notice we simplify the quantization
+scheme here, compared to MPEG-1, by considering quantization with any
+number of bits in [0,16].  
+'''
+# Adaptive quantization per blocks of 12 frames
+n_frames=np.trunc(n_frames/12)*12 
+for k in range(0,int(n_frames),12):
+    # Computing scale factors in each 12 samples sub-band chunk
+    scale_factors=np.max(np.abs(subbands[k:k+12,:]),axis=0)
+    
+    # Computing SMRs
+    frame=input_signal[175+k*32:175+k*32+512]
+    # NB: the input frame for the psycho-acoustic model is delayed by 176
+    # samples, as it should be centered in the middle of the local block of
+    # 12 sub-band samples, and the first sub-band sample corresponds to
+    # original sample 256 (actually, to sample 512, but the analysis filter
+    # introduces a delay of 256 samples). So the center of the first frame should
+    # be on original sample 256+11*32/2=432, and the beginning of this frame
+    # falls on sample 11*32/2=176.
+    SMR, min_threshold,frame_psd_dBSPL,masking_threshold = mpeg_pam.MPEG1_psycho_acoustic_model1(frame)
+
+    # Allocating bits for a target bit rate of 192 kbits/s (compression ratio = 4)
+    N_bits, SNR = mpeg_ba.MPEG1_bit_allocation(SMR, 192000)
+
+    # Adaptive perceptual uniform quantization, using a mid-thread 
+    # quantizer in [-Max,+Max] 
+    for j in range(32):
+        if N_bits[j]!=0:
+            alpha = 2**(N_bits[j]-1)/scale_factors[j]
+            quantized_subbands[k:k+11,j] = np.floor(alpha*subbands[k:k+11,j]+0.5)/alpha # mid-thread
+
+            # codes = uencode(subbands[k:k+11,j],N_bits[j],scale_factors[j],'signed')
+            # quantized_subbands[k:k+11,j]=udecode(codes,N_bits[j],scale_factors[j])
+        else:
+            quantized_subbands[k:k+11,j] = 0
+
+    # Screen output
+    print(f'processing frame {int(k+1):3d}/{int(n_frames):3d}')
+
+# Signal synthesis
+output_signal=np.zeros_like(input_signal)
+for i in range(int(n_frames)):
+    # Synthesis filters
+    output_frame = np.dot(np.transpose(PQMF32_Gfilters), quantized_subbands[i, :])
+    # Overlap output_frames (with delay of 511 samples)
+    output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
+
+spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
+# An audio player will be implemented here. (output_signal, Fs)
+
+# %%
+'''
+Quantization noise is now very small in some prominent sub-bands, like
+sub-band #2. 
+'''
+plt.plot(subbands[99:200,1],'--r', label='Sub-band #2, original')
+plt.plot(quantized_subbands[99:200,1], label='Sub-band#20, quantized')
+plt.legend()
+plt.xlabel('Time (samples at Fs/32)')
+plt.ylabel('Amplitude')
+
+# %%
+'''
+It is also more important in other sub-bands, like sub-band #20. 
+'''
+plt.plot(subbands[99:200,19],'--r', label='Sub-band #20, original')
+plt.plot(quantized_subbands[99:200,19],label='Sub-band#20, quantized') 
+plt.legend()
+plt.xlabel('Time (samples at Fs/32)')
+plt.ylabel('Amplitude')
+
+# %%
+'''
+The overall SNR has increased to 36.2 dB.
+The perceptual SNR is actually much higher, since most of the noise
+cannot be heard. 
+'''
+error=np.subtract(output_signal,input_signal)
+for i in range(len(error)):
+    error[i]=np.round(error[i],4)
+
+w, signal_psd = signal.periodogram(input_signal[11000:12024],
+        fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+W, error_psd = signal.periodogram(error[11000:12024],
+        fs=2*np.pi, window=np.hamming(1024), detrend=False, nfft=1024)
+plt.plot(w/np.pi*22050,10*np.log10(signal_psd),label='Signal PSD')
+plt.plot(w/np.pi*22050,10*np.log10(error_psd),'r',label='Error PSD')
+plt.legend()
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude (dB)')
+
+snr_scaled_perceptual=snr.snr(input_signal[512:-512],output_signal[512:-512],0)
+
+# %%
+'''
+The price to pay is that the scale factors and the number of bits per
+sub-band must now be stored, every 12 frames (i.e. every 12*32 sub-band
+samples). 
+In the MPEG-1 norm, scale factors expressed in dB and quantized
+on 6 bits each. This comes from the fact that the ear perceives loudness
+as the log of the energy, and has about 96 dB of hearing dynamics with a
+sensitivity threshold of about 1 dB. With 6 bits, the quantization step
+is 96/64 dB and the error lies in [-96/62/2, +96/64/2], which is below
+the 1 dB threshold.
+Assuming 4 bits are required for this information in each of the
+27 first sub-bands (sub-bands 28 to 32 are ignored my MPEG1), this leads
+to 27*10=270 bits every 12 frames. 
+(In practice, MPEG-1 does not allow all integer values in [1,16] for the
+number of bits in each band, which makes it possible to quantize it to
+less then 4 bits. The total number of bits used for bit allocation is
+then reduced to 88.) 
+It is easy to obtain the number of bits used for the last block of 12
+frames in our audio test, and the related bit-rate.
+'''
+bits_per_block=np.sum(N_bits)*12+270
+bit_rate=bits_per_block*44100/384
+# %%
+'''
+Appendix 1: Uniform quantizers
+In Section 5 we have used a mid-thread quantizer. It was tempting to use
+the |uencode| and |udecode| fucntions provided by MATLAB, but a quick
+examination of the quantization charactertic of these functions shows
+they do not implement a real mid-thread quantizer.
+'''
+def uencode(u, n, v):
+    # Clipping:
+    # stays same if -v < element < v
+    # v if element was greater than v
+    # -v if element was smaller than -v
+    u = np.clip(u, -v, v)
+    L = 2**n # number of quantization levels
+    quantized = np.floor((u+v)*L/(2*v)) # shift,scale,normalize
+    quantized = np.clip(quantized,0,L-1)
+    return quantized
+
+def udecode(y, n, v):
+    L = 2**n
+    # opposite operations of encoding
+    x = (y)*(2*v)/L-v
+    return x
+
+x = np.arange(-1,1,0.01)
+n_bits=3
+codes = uencode(x,n_bits,1)
+y1 = udecode(codes,n_bits,1)
+alpha = 2**(n_bits-1)
+y2 = (np.floor(alpha*x)+0.5)/alpha # mid-rise
+y3 = (np.floor(alpha*x+0.5))/alpha # mid-thread
+
+plt.plot(x,y1,'b',label='uen(de)code')
+plt.plot(x,y2,'r',label='mid-rise')
+plt.plot(x,y3,'g',label='mid-thread')
+plt.plot([0, 0], [-1, 1],color='g')
+plt.plot([-1, 1], [0, 0], color='purple')
+plt.xlim(-1,1)
+plt.ylim(-1,1)
+plt.legend()
+
+# %%
