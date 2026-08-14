@@ -69,7 +69,11 @@ f0  = 0                     # Frequency (e.g. Hz) at time t=0.
 t1  = 4                     # Time at which f1 is specified.
 f1  = 4000                  # Frequency (e.g. Hz) of the waveform at time t1.
 input_signal = signal.chirp(t,f0,t1,f1)
-sd.play(input_signal,Fs)
+
+silence = np.zeros(int(2000), dtype=input_signal.dtype)
+input_signal_padded = np.concatenate((input_signal, silence))
+sd.play(input_signal_padded,Fs)
+sd.wait()
 
 # %%
 spectrogram.plot_spectrogram(input_signal,1024,Fs,256)
@@ -114,7 +118,10 @@ So, the original chirp sweeps from 0 to 4000Hz while an image sweeps from
 sweeping from 4000Hz to 0Hz. That's why we observe a second red line on
 the opposite diagonal.
 '''
-sd.play(upsampled,Fs)
+silence = np.zeros(int(2000), dtype=upsampled.dtype)
+upsampled_padded = np.concatenate((upsampled, silence))
+sd.play(upsampled_padded,Fs)
+sd.wait()
 
 # %%
 '''
@@ -163,7 +170,12 @@ plt.tight_layout()
 G0_output = signal.lfilter(G0,1,upsampled)
 # NB: The first 1000 samples are a filter transient reponse
 spectrogram.plot_spectrogram(G0_output[1000:],1024,Fs,512)
-sd.play(G0_output[1000:],Fs)
+
+audio_1 = G0_output[1000:]
+silence = np.zeros(int(2000), dtype=audio_1.dtype)
+audio_1_padded = np.concatenate((audio_1, silence))
+sd.play(audio_1_padded,Fs)
+sd.wait()
 
 # %%
 '''
@@ -181,7 +193,12 @@ G0_output = signal.lfilter(G0,1,upsampled)
 
 # NB: The first 2000 samples are a filter transient reponse
 spectrogram.plot_spectrogram(G0_output[2000:],1024,Fs,256)
-sd.play(G0_output[2000:],Fs)
+
+audio_2 = G0_output[2000:]
+silence = np.zeros(int(2000), dtype=audio_2.dtype)
+audio_2_padded = np.concatenate((audio_2, silence))
+sd.play(audio_2_padded,Fs)
+sd.wait()
 
 # %%
 
@@ -198,7 +215,12 @@ upsampled[::2]=2*downsampled
 G1_output = signal.lfilter(G1,1,upsampled)
 
 spectrogram.plot_spectrogram(G1_output[2000:],1024,Fs,256)
-sd.play(G1_output[2000:],Fs)
+
+audio_3 = G1_output[2000:]
+silence = np.zeros(int(2000), dtype=audio_3.dtype)
+audio_3_padded = np.concatenate((audio_3, silence))
+sd.play(audio_3_padded,Fs)
+sd.wait()
 
 # %%
 
@@ -209,7 +231,12 @@ adding  the two signals obtained above.
 
 synt_signal = G0_output + G1_output
 spectrogram.plot_spectrogram(synt_signal[2000:],1024,Fs,256)
-sd.play(synt_signal[2000:],Fs)
+
+audio_4 = synt_signal[2000:]
+silence = np.zeros(int(2000), dtype=audio_4.dtype)
+audio_4_padded = np.concatenate((audio_4, silence))
+sd.play(audio_4_padded,Fs)
+sd.wait()
 
 # %%
 '''
@@ -230,7 +257,11 @@ plt.title("Reconstruction Error")
 plt.xlabel("Samples")
 plt.ylabel("Amplitude")
 plt.grid(True)
+
+silence = np.zeros(int(2000), dtype=error.dtype)
+error = np.concatenate((error, silence))
 sd.play(error,Fs)
+sd.wait()
 
 # %%
 
@@ -278,8 +309,12 @@ upsampled[::2]=2*subband_0
 G0_QMF=H0_QMF_extended
 G0_output=signal.lfilter(G0_QMF,1,upsampled)
 spectrogram.plot_spectrogram(G0_output,1024,Fs,256)
-#sd.play(G0_output,Fs)
-
+'''
+silence = np.zeros(int(2000), dtype=G0_output.dtype)
+G0_output_padded = np.concatenate((G0_output, silence))
+sd.play(G0_output_padded,Fs)
+sd.wait()
+'''
 # %%
 # HF band
 
@@ -291,7 +326,12 @@ G1_QMF=-H1_QMF
 G1_output=signal.lfilter(G1_QMF,1,upsampled)
 
 spectrogram.plot_spectrogram(G1_output,1024,Fs,256)
-#sd.play(G1_output,Fs)
+'''
+silence = np.zeros(int(2000), dtype=G1_output.dtype)
+G1_output_padded = np.concatenate((G1_output, silence))
+sd.play(G1_output_padded,Fs)
+sd.wait()
+'''
 
 # %%
 '''
@@ -301,7 +341,12 @@ synthesis filters are such that the aliasing in each band sum up to zero
 '''
 synt_signal=G0_output+G1_output
 spectrogram.plot_spectrogram(synt_signal,1024,Fs,256)
-#sd.play(synt_signal,Fs)
+'''
+silence = np.zeros(int(2000), dtype=synt_signal.dtype)
+synt_signal = np.concatenate((synt_signal, silence))
+sd.play(synt_signal,Fs)
+sd.wait()
+'''
 
 # %%
 '''
@@ -358,7 +403,11 @@ sample_rate, audio_raw = wavfile.read('../audio_samples/violin.wav')
 audio = audio_raw / 32768
 total_duration = len(audio)
 spectrogram.plot_spectrogram(audio,1024,sample_rate,256);
-sd.play(audio_raw,sample_rate)
+
+silence = np.zeros(int(2000), dtype=audio_raw.dtype)
+audio_raw_padded = np.concatenate((audio_raw, silence))
+sd.play(audio_raw_padded,sample_rate)
+sd.wait()
 
 # %%
 output_signal=np.zeros(len(audio))
@@ -382,7 +431,11 @@ As revealed by listening sub-band 3, isolated sub-band signals
 are very much aliased, because each  PQMF filter is not ideal. 
 '''
 spectrogram.plot_spectrogram(G3_output,1024,sample_rate,256)
-sd.play(G3_output,sample_rate)
+
+silence = np.zeros(int(2000), dtype=G3_output.dtype)
+G3_output_padded = np.concatenate((G3_output, silence))
+sd.play(G3_output_padded,sample_rate)
+sd.wait()
 
 # %%
 '''
@@ -390,7 +443,11 @@ The PQMF filter bank makes sure aliasing in adjacent bands cancels itself
 when sub-bands are added. 
 '''
 spectrogram.plot_spectrogram(output_signal,1024,sample_rate,256)
-sd.play(output_signal,sample_rate)
+
+silence = np.zeros(int(2000), dtype=output_signal.dtype)
+output_signal_padded = np.concatenate((output_signal, silence))
+sd.play(output_signal_padded,sample_rate)
+sd.wait()
 
 # %%
 '''
@@ -461,7 +518,12 @@ for i in range(int(len(input_signal)/4)):
     # storing the output column vector in the output signal
     output_signal[4*i:4*i+4]=output_frame
 
-sd.play(output_signal,Fs)
+'''
+silence = np.zeros(int(2000), dtype=output_signal.dtype)
+output_signal_padded = np.concatenate((output_signal, silence))
+sd.play(output_signal_padded,Fs)
+sd.wait()
+'''
 
 # %%
 
@@ -611,7 +673,11 @@ for i in range(int(n_frames)):
      output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
 
 spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
-sd.play(output_signal,Fs)
+
+silence = np.zeros(int(2000), dtype=output_signal.dtype)
+output_signal_padded = np.concatenate((output_signal, silence))
+sd.play(output_signal_padded,Fs)
+sd.wait()
 
 # %%
 '''
@@ -693,7 +759,11 @@ for i in range(int(n_frames)):
     output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
 
 spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
-sd.play(output_signal,Fs)
+
+silence = np.zeros(int(2000), dtype=output_signal.dtype)
+output_signal_padded = np.concatenate((output_signal, silence))
+sd.play(output_signal_padded,Fs)
+sd.wait()
 
 # %%
 '''
@@ -850,7 +920,11 @@ for i in range(int(n_frames)):
     output_signal[i*32:i*32+512]= output_signal[i*32:i*32+512]+output_frame
 
 spectrogram.plot_spectrogram(output_signal,1024,Fs,256)
-sd.play(output_signal,Fs)
+
+silence = np.zeros(int(2000), dtype=output_signal.dtype)
+output_signal_padded = np.concatenate((output_signal, silence))
+sd.play(output_signal_padded,Fs)
+sd.wait()
 
 # %%
 '''
