@@ -1,10 +1,16 @@
 
 from scipy.io import wavfile
 from scipy import signal
-from scipy.linalg import solve_toeplitz
 import numpy as np
 import matplotlib.pyplot as plt
 import sounddevice as sd
+import find_Nbest_components as fNbc
+import plotting_spectrogram as ps
+import plotting_periodogram as pp
+import lpc_brute_force_calculation as lpc_bfc
+import lpc_calculation_with_toeplitz as lpc_t
+import pitch
+import plotting_zplane as pz
 
 # %%
 '''
@@ -83,26 +89,7 @@ For a better graphical result, we choose a wideband spectrogram, by
 imposing the length of each frame to be approximately 5 ms long (40
 samples) and a hamming weighting window.
 '''
-def plot_spectrogram(audio, fs=8000):
-    """
-    Replicates MATLAB's specgram(speech, 512, 8000, hamming(40)) function.
-    Uses a 40-sample Hamming window for formant visualization.
-    """
-    f, t, Sxx = signal.spectrogram(audio,
-                                   fs=fs,
-                                   window=np.hamming(40),
-                                   nperseg=40,
-                                   noverlap=20,
-                                   nfft=512)
-    plt.figure      (figsize=(10, 8))
-    # Python uses 'viridis' color map as default. 
-    # Instead we will use MATLAB's 'jet' colormap for exact visual match
-    plt.pcolormesh  (t, f, 10 * np.log10(Sxx), shading='auto', cmap='jet')
-    plt.title       ("Spectrogram")
-    plt.ylabel      ('Frequency (Hz)')
-    plt.xlabel      ('Time (s)')
-
-plot_spectrogram(audio)
+ps.plot_spectrogram(audio)
 
 # to be used in my report
 ZOOM_EN = False
@@ -166,46 +153,7 @@ Now let us see the spectral content of this speech frame, by plotting its
 periodogram on 512 points (using a normalized frequency axis; remember 
 pi corresponds to Fs/2, i.e. to 4000 Hz here). 
 '''
-def plot_periodogram(frame, fs):
-    """
-    Replicates MATLAB's periodogram(input_frame, [], 512) function 
-    with normalized amplitude and frequency settings.
-
-    For Python perodogram is a 2D plot with normalized frequency on the 
-    horizontal axis and the PSD on the vertical axis. 
-    It is in the following format:
-    frequency, PSD = periodogram(x, fs, window=None,nfft=integer)
-    The window is chosen to be rectangular by default if it is left blank. 
-    P stands for power and xx for autocorrelation.
-    detrend is fixed as a constant value, we need to set it as False.
-    Otherwise, it subtracts the DC component of the signal (removes linear 
-    or constant trends) before taking the Fourier transform.
-    """
-
-    # detrend=False mimic MATLAB's normalized PSD assumption
-    f, Pxx = signal.periodogram(frame, 
-                                    fs=fs, 
-                                    window='boxcar', 
-                                    detrend=False,
-                                    nfft=512)
-    
-    # Map the frequency axis between 0 and 1 (as multiples of pi)
-    # f_max = fs/2
-    # f_normalized = f/f_max = f/(fs/2) = 2*f/fs
-    f_normalized = 2*f/fs
-    
-    # Convert the linear PSD to Decibels (dB)
-    Pxx_db = 10 * np.log10(Pxx)
-    
-    plt.figure  (figsize=(10, 8))
-    plt.plot    (f_normalized, Pxx_db)
-    plt.title   ('Periodogram Power Spectral Density Estimate')
-    plt.ylabel  ('Power/frequency (dB/(rad/sample))')
-    plt.xlabel  ('Normalized Frequency ($\\times \\pi$ rad/sample)')
-    plt.xlim    (0, 1)
-    plt.grid    (True)
-
-plot_periodogram(input_frame_for_letter_e, 2*np.pi)
+pp.plot_periodogram(input_frame_for_letter_e, 2*np.pi)
 
 # %%
 '''
@@ -221,167 +169,11 @@ the prediction coefficients (ai) and the variance of the residual signal
 Notice we do not apply windowing prior to LP analysis now, as it has 
 no tutorial benefit. We will add it in subsequent Sections.
 '''
-def lpc_toeplitz(frame, order):
-    # Autocorrelation vector r=[R[0] R[1] R[2] ... R[p]]
-    r = [sum(frame[n] * frame[n+p] for n in range(len(frame)-p)) for p in range(order + 1)]
-    # To specify the Toeplitz matrix, only the first column and the first row are needed.
-    # Since autocorrelation matrix is symmetric the first row and first colums are the same.
-    # first_column = first_row = r[:-1], right_hand_side = r[1:]
-    a_rest = solve_toeplitz((r[:-1],r[:-1]), -np.array(r[1:]))
-    # Inserting 1 as the 0th element
-    a = np.insert(a_rest, 0, 1)
-    sigma_squared = np.dot(a, r)/len(frame)
-    return a, sigma_squared
-
-def autocorrelation_calculation(input_frame, order):
-    '''
-    Takes in the 240 element frame and calculates the autocorrelation
-    values R[0], R[1],..., R[p] where p is the order.
-    '''
-    # Autocorrelation vector will be in the form: r=[R[0] R[1] R[2] ... R[p]]
-    autocorrelation_vector = []
-    # p (the order) goes from 0 to p.
-    for p in range(order + 1):
-        sum = 0
-        # n goes from 0 to 240-p.
-        for n in range(len(input_frame)-p):
-            # By definition, we multiply the signal itself by its 
-            # k-unit shifted version and add the results.
-            sum = sum + input_frame[n]*input_frame[n+p]
-        autocorrelation_vector.append(float(sum))
-    return autocorrelation_vector
-
-def lpc_calculation(input_frame_for_letter_e, order):
-    '''
-    For a given frame we try to find the optimal ai coefficients that 
-    minimizes the expectation of the residual energy argmin(E[e^2[n]]).
-    This function solves the Yule-Walker equations by brute-force.
-    Yule-Walker equations are in the following matrix format: R*a=r.
-    '''
-    
-    # Create the autocorrelation vector containing R[0] to R[p]
-    autocorrelation_vector = autocorrelation_calculation(input_frame_for_letter_e, order)
-
-    # CHECK POINT - autocorrelation vector
-    if DEBUG_MODE:
-        counter = 0
-        print('autocorrelation vector is: ')
-        for element in autocorrelation_vector:
-            print('R[',counter,'] = ', element, sep='')
-            counter += 1
-        print('')
-    
-    R = [] # pxp matrix
-    # start from row 1 to row p
-    # Remember: Autocorrelation vector = [R[0] R[1] R[2] ... R[p]]
-    for i in range(1,order+1):
-        R_row_i = []
-        for j in range(1,order+1):
-            # Row i=1 of R is R[0], R[-1](or R[1]), ..., R[1-p] (or R[p-1])
-            # Row i=2 of R is R[1], R[0], R[-1](or R[1]), ..., R[2-p] (or R[p-2])
-            # ...
-            # Row i=p of R is R[p-1], R[p-2], R[p-3], ..., R[0]
-            # It is enough to check the absolute value of the difference i and j
-            # because R[k]=R[-k] is satisfied for any k.
-            R_row_i.append(autocorrelation_vector[abs(i-j)])
-        R.append(R_row_i)
-    
-    # CHECK POINT - autocorrelation matrix R
-    if DEBUG_MODE:
-        row_counter = 0
-        print('autocorrelation matrix (R) is: ')
-        for row in R:
-            col_counter = 0
-            for element in row:
-                value = abs(row_counter-col_counter)
-                print(f'R[{row_counter}][{col_counter}]=R[{value}]={element:>6.3f}', end=' | ')
-                col_counter += 1
-            print('')
-            row_counter += 1
-        print('')
-
-    # Yule-Walker Equations expanded form: 
-    # a1*R[k-1] + a2*R[k-2] +...+ ap*R[k-p] = -R[k] where k=1,2,...,order
-    # In matrix form, right hand side is: -[R[1] R[2] ... R[p]]
-
-    # 11 elements original vector, we will use it later
-    a_v_o = autocorrelation_vector.copy()
-
-    # To obtain the right hand side, we need to negate the autocorrelation vector:
-    for i in range(len(autocorrelation_vector)):
-        autocorrelation_vector[i] = -autocorrelation_vector[i]
-    
-    # CHECK POINT - Negated autocorrelation vector
-    if DEBUG_MODE:
-        counter = 0
-        print('Negated autocorrelation vector is: ')
-        for element in autocorrelation_vector:
-            print('R[',counter,'] = ', element, sep='')
-            counter += 1
-        print('')
-
-    # Exclude the first term R[0]
-    autocorrelation_vector.pop(0) # R[0] is taken out
-    # Call this new autocorrelation_vector as a_v_rhs
-    a_v_rhs = autocorrelation_vector # px1 vector
-    # a_v_rhs = -[R[1] R[2] ... R[p]]
-
-    # CHECK POINT - Right hand side vector
-    if DEBUG_MODE:
-        counter = 1
-        print('Right hand side vector (a_v_rhs) is: ')
-        for element in a_v_rhs:
-            print('R[',counter,'] = ', element, sep='')
-            counter += 1
-        print('')
-
-    '''
-    Now that R(autocorrelation matrix) and a_v_rhs(autocorrelation vector) are 
-    formed, we start eliminating the unknowns by replacing them in terms of the 
-    rest of the unknowns using Gaussian elimination.   
-    '''
-
-    # Gaussian Elimination Algorithm
-    for i in range(order): # picking the i_th element of i_th row
-        coef_of_the_a_to_be_eliminated = R[i][i]
-        for j in range(i+1,order): # finding multipliers under row i
-            multiplier = R[j][i] / coef_of_the_a_to_be_eliminated
-            for k in range(i, order): # executing subtraction of rows
-                R[j][k] = R[j][k] - (multiplier * R[i][k])
-            a_v_rhs[j] = a_v_rhs[j] - (multiplier * a_v_rhs[i])
-
-    # Obtaining a_coefficients = [a1 a2 ... ap]:
-    a_coefficients = [0]*order # px1 lpc coefficients vector
-    
-    # Begin from the right
-    for i in range(order-1, -1, -1):
-        current_sum = 0
-        # Notice that below will be skipped in the first loop
-        for j in range(i + 1, order): # only right side concerns us.
-            current_sum = current_sum + (R[i][j] * a_coefficients[j])
-            
-        # Rearrange the Yule-Walker Equation, leave lpc coef. alone.
-        a_coefficients[i] = (a_v_rhs[i] - current_sum) / R[i][i]
-        
-    # By definition of LPC, the first coefficient a0 is always 1.
-    # We insert 1 at the very beginning of our array.
-    a_coefficients.insert(0, 1) # (p+1)x1 vector
-    # Obtaining a_coefficients = [a0 a1 a2 ... ap]:
-
-    # Residual energy: E = a0*R[0] + a1*R[1] + a2*R[2] + ... + ap*R[p]
-    sigma_squared = 0
-    for i in range(order+1):
-        sigma_squared = sigma_squared + (a_coefficients[i] * a_v_o[i])
-    # MATLAB always divide the summation by the length of the window:
-    sigma_squared = sigma_squared/len(input_frame_for_letter_e)
-
-    return a_coefficients, sigma_squared
-
 # Notice that the input frame has 240 elements in it.
-a_coefficients, sigma_squared = lpc_calculation(input_frame_for_letter_e, 10)
+a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(input_frame_for_letter_e, 10)
 sigma = np.sqrt(sigma_squared)
 
-a_coefficients_toeplitz, sigma_squared_toeplitz = lpc_toeplitz(input_frame_for_letter_e, 10)
+a_coefficients_toeplitz, sigma_squared_toeplitz = lpc_t.lpc_toeplitz(input_frame_for_letter_e, 10)
 sigmatoeplitz = np.sqrt(sigma_squared_toeplitz)
 
 # CHECK POINT - lpc coefficients, sigma_squared, sigma
@@ -450,7 +242,7 @@ one-sided periodogram, which has twice the value of the two-sided
 periodogram in [0,Fs/2]. In order to force MATLAB to show the real value
 of the two-sided periodogram in [0, Fs/2], we claim Fs=2.
 '''
-plot_periodogram(input_frame_for_letter_e, 2) # fs=2
+pp.plot_periodogram(input_frame_for_letter_e, 2) # fs=2
 plt.plot(W/np.pi,20*np.log10(sigma*abs(H)));
 '''
 PHYSICAL AND MATHEMATICAL INTERPRETATION OF THE PLOTS:
@@ -489,48 +281,7 @@ In other words, the LPC fit has automatically adjusted the poles of the
 synthesis filter close to the unit circle at angular positions chosen to
 imitate formant resonances.
 '''
-# a_coefficients = [1 a1 a2 ... ap] form A(z) and 1/A(z) as follows:
-# A(z) = 1 + a1*z^-1 + a2*z^-2 + ... + ap*z^-p
-# 1/A(z) = 1/(1 + a1*z^-1 + a2*z^-2 + ... + ap*z^-p)
-
-def plot_zplane(b, a):
-    """
-    Replicates MATLAB's zplane(b, a) functionality.
-    b: numerator coefficients
-    a: denominator coefficients
-    """
-    # first equate the lengths by padding zeros, we shouldn'T miss the zeros.
-    max_len = max(len(b), len(a))
-    b_padded = np.pad(b, (0, max_len - len(b)), 'constant')
-    a_padded = np.pad(a, (0, max_len - len(a)), 'constant')
-    # Then find the roots:
-    # Notice there will be zeros on the origin because b=[1, 0, ..., 0]
-    zeros = np.roots(b_padded)
-    poles = np.roots(a_padded)
-    
-    plt.figure(figsize=(10, 8))
-    ax = plt.subplot(111)
-    unit_circle = plt.Circle((0,0), 1, color='blue',fill=False, linestyle='--')
-    ax.add_patch(unit_circle)
-    plt.axvline(0, color='blue',linestyle='--')
-    plt.axhline(0, color='blue',linestyle='--')
-
-    plt.plot(np.real(zeros), np.imag(zeros), 'o', markersize=8, markerfacecolor='None',
-            color='blue', label='Zeros')
-    
-    plt.plot(np.real(poles), np.imag(poles), 'x', markersize=8, 
-            color='blue', label='Poles')
-        
-    plt.title('Pole-Zero Plot (Z-Plane)')
-    plt.xlabel('Real Part')
-    plt.ylabel('Imaginary Part')
-    plt.axis('equal') 
-    plt.xlim([-1.5, 1.5])
-    plt.ylim([-1.5, 1.5])
-    plt.grid(True)
-    plt.legend()
-
-plot_zplane([1], a_coefficients)
+pz.plot_zplane([1], a_coefficients)
 '''
 Are the poles inside the unit circle by coincidence?
 Absolutely not. This is a fundamental mathematical guarantee of the Yule-Walker 
@@ -568,7 +319,7 @@ The new spectrum is approximately flat; its fine spectral details,
 however, are the same as those of the analysis frame. In particular, its
 pitch and harmonics are preserved. 
 '''
-plot_periodogram(LP_residual, 2*np.pi)
+pp.plot_periodogram(LP_residual, 2*np.pi)
 
 # %%
 '''
@@ -603,7 +354,7 @@ same broad features as that of the residual: flat envelope, and harmonic
 content corresponding to F0. The main difference is that the excitation
 spectrum is "over-harmonic" compared to the residual spectrum.
 '''
-plot_periodogram(gain*excitation, 2*np.pi)
+pp.plot_periodogram(gain*excitation, 2*np.pi)
 
 # %%
 '''
@@ -620,7 +371,7 @@ identical. Its fine harmonic details, though, also widely differ (the
 synthetic frame is actually "over-harmonic" compared to the analysis
 frame.
 '''
-plot_periodogram(synt_frame, 2*np.pi)
+pp.plot_periodogram(synt_frame, 2*np.pi)
 
 # %%
 '''
@@ -690,7 +441,7 @@ Synthesis is performed by all-pole filtering a Gaussian white noise frame
 with standard deviation set to the prediction residual standard
 deviation, sigma.
 '''
-a_coefficients, sigma_squared = lpc_calculation(input_frame_for_letter_c, 10)
+a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(input_frame_for_letter_c, 10)
 sigma = np.sqrt(sigma_squared)
 
 # CHECK POINT - lpc coefficients, sigma_squared, sigma
@@ -739,7 +490,7 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     input_frame = audio[i*80:i*80+240]
     # Hamming window weighting
     windowed_frame = input_frame*np.hamming(240)
-    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(windowed_frame, 10)
     sigma = np.sqrt(sigma_squared)
     # Generating 10 ms of excitation
     # = 2 pitch periods at 200 Hz
@@ -790,7 +541,7 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     input_frame = audio[i*80:i*80+240]
     # Hamming window weighting
     windowed_frame = input_frame*np.hamming(240)
-    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(windowed_frame, 10)
     sigma = np.sqrt(sigma_squared)
     # Generating 10 ms of excitation
     excitation = np.zeros(80) # 80 element frame with 40 pitch period
@@ -845,7 +596,7 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     input_frame = audio[i*80:i*80+240]
     # Hamming window weighting
     windowed_frame = input_frame*np.hamming(240)
-    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(windowed_frame, 10)
     sigma = np.sqrt(sigma_squared)
     # Generating 10 ms of excitation
     # taking a possible offset into account
@@ -902,7 +653,7 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     input_frame = audio[i*80:i*80+240]
     # Hamming window weighting
     windowed_frame = input_frame*np.hamming(240)
-    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(windowed_frame, 10)
     sigma = np.sqrt(sigma_squared)
     # Generating 10 ms of excitation
     excitation = np.random.randn(80) # White Gaussian noise
@@ -943,32 +694,6 @@ the ratio of this maximum by the variance of the residual.
 This simple algorithm is not optimal, but will do the job for this
 proof of concept.
 '''
-def pitch(frame):
-    '''
-    Estimates the fundamental period (in samples) of a 30 ms speech frame.
-    Returns T0 = 0 if the frame is detected as unvoiced.
-    T0 is computed from the maximum of the autocorrelation of the LPC residual.
-    '''
-    a_coeffs, sigma_square = lpc_calculation(frame, 10)
-    lpc_residual = signal.lfilter(a_coeffs, [1], frame) # glottal sound 240 sample
-    # autocorrelation of the residual (2N-1: 2*240-1 = 479 elements)
-    C = np.correlate(lpc_residual, lpc_residual, mode='full')
-    center = len(lpc_residual) - 1 # center index 239
-    C_half = C[center : center + 134] # 134 elements (239-373)
-    Cxx = C_half / C_half[0] # normalization # 134 elements
-    Cxx[0:26] = 0
-    # 
-    Amax = np.max(Cxx)  # max value
-    Imax = np.argmax(Cxx) # index of the max value
-
-    # U/UV decision
-    if Amax > 0.20:
-        T0 = Imax
-    else:
-        T0 = 0
-
-    return T0
-
 synt_speech_LPC10 = []
 z = np.zeros(10)
 offset = 0
@@ -978,11 +703,11 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     input_frame = audio[i*80:i*80+240]
     # Hamming window weighting
     windowed_frame = input_frame*np.hamming(240)
-    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(windowed_frame, 10)
     sigma = np.sqrt(sigma_squared)
 
     # local synthesis pitch period (in samples)
-    N0 = pitch(input_frame)
+    N0 = pitch.pitch(input_frame)
 
     # Generating 10 ms of excitation
     if N0!=0: # voiced frame
@@ -1031,7 +756,7 @@ formants as the original speech. It is therefore acoustically similar to
 the original, except for the additional buzzyness which has been added by
 the LP model.
 '''
-plot_spectrogram(synt_speech_LPC10)
+ps.plot_spectrogram(synt_speech_LPC10)
 
 # %%
 '''
@@ -1053,50 +778,6 @@ We start with 30 ms LP analysis frames, shifted every 5 ms, and a
 codebook size of 512 vectors, from which 10 components are chosen for
 every 5 ms synthesis frame.
 '''
-def find_Nbest_components(sig, codebook_vectors, N):
-    """
-    Finds the N best codebook components to represent the target signal.
-    The residual error is minimized as:
-    error = signal - codebook_vectors[:, indices] * gains
-    """
-    # M: number of rows (frame_shift = 40), L: number of columns (codebook_size = 512)
-    M, L = codebook_vectors.shape
-    
-    # Calculate the norm of each vector once to optimize the loop
-    codebook_norms = np.linalg.norm(codebook_vectors, axis=0)
-    
-    gains = np.zeros(N)
-    # Forcing the index array to 'int' to prevent type conversion errors
-    indices = np.zeros(N, dtype=int) 
-    
-    # Copy the signal since we will mutate it inside the greedy loop
-    current_signal = sig.copy()
-    
-    for k in range(N):
-        max_norm = 0
-        best_j = 0
-        
-        for j in range(L):
-            # MATLAB: beta = codebook_vectors(:,j)' * signal
-            beta = np.dot(codebook_vectors[:, j], current_signal)
-            
-            if codebook_norms[j] != 0:
-                component_norm = np.abs(beta) / codebook_norms[j]
-            else:
-                component_norm = 0
-                
-            if component_norm > max_norm:
-                gains[k] = beta / (codebook_norms[j]**2)
-                best_j = j
-                max_norm = component_norm
-                
-        indices[k] = best_j
-        
-        # Greedy Algorithm: Subtract the chosen component's effect from the signal
-        current_signal = current_signal - gains[k] * codebook_vectors[:, best_j]
-        
-    return gains, indices
-
 frame_length = 240      # length of the LPC analysis frame
 frame_shift = 40        # length of the excitation and synthesis frames
 codebook_size = 512     # number of vectors in the codebook
@@ -1116,7 +797,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
 
     # LPC analysis of order 10
     windowed_frame = input_frame*np.hamming(frame_length)
-    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(windowed_frame, 10)
     sigma = np.sqrt(sigma_squared)
     
     # Extracting frame_shift samples from the LPC analysis frame
@@ -1130,7 +811,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     # the synthesis filter  
     ringing,last_situation  = signal.lfilter(1, a_coefficients, np.zeros(frame_shift), zi=z_synt)
     sig = speech_frame - ringing
-    gains, indices = find_Nbest_components(sig, codebook_filt, N_components)
+    gains, indices = fNbc.find_Nbest_components(sig, codebook_filt, N_components)
     
     # Generating the corresponding excitation as a weighted sum of
     # codebook vectors
@@ -1225,7 +906,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
 
     # LPC analysis of order 10
     windowed_frame = input_frame*np.hamming(frame_length)
-    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(windowed_frame, 10)
     sigma = np.sqrt(sigma_squared)
     
     # Extracting frame_shift samples from the LPC analysis frame
@@ -1243,7 +924,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     # Finding the best predictor in the LTP codebook
     ringing, x = signal.lfilter(1, a_coefficients, np.zeros(frame_shift), zi=z_synt)
     sig = speech_frame - ringing
-    LTP_gain, LTP_index = find_Nbest_components(sig, LTP_codebook_filt, 1)
+    LTP_gain, LTP_index = fNbc.find_Nbest_components(sig, LTP_codebook_filt, 1)
     
     # Generating the corresponding prediction
     LT_prediction = np.dot(LTP_codebook[:,LTP_index],LTP_gain)
@@ -1251,7 +932,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     # Finding speech_frame components in the filtered codebook
     # taking long term prediction into account 
     sig = sig - np.dot(LTP_codebook_filt[:,LTP_index],LTP_gain)
-    gains, indices = find_Nbest_components(sig,codebook_filt, N_components)
+    gains, indices = fNbc.find_Nbest_components(sig,codebook_filt, N_components)
     
     # Generating the corresponding excitation as a weighted sum of
     # codebook vectors plus long-term prediction
@@ -1354,7 +1035,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
 
     # LPC analysis of order 10
     windowed_frame = input_frame*np.hamming(frame_length)
-    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(windowed_frame, 10)
     sigma = np.sqrt(sigma_squared)
     
     # Computing the coefficients of A(z/gamma)
@@ -1378,7 +1059,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     # Finding the best predictor in the LTP codebook
     ringing, x = signal.lfilter(1, ai_perceptual, np.zeros(frame_shift), zi=z_gamma_e)
     sig = perceptual_speech - ringing
-    LTP_gain, LTP_index = find_Nbest_components(sig, LTP_codebook_filt, 1)
+    LTP_gain, LTP_index = fNbc.find_Nbest_components(sig, LTP_codebook_filt, 1)
     
     # Generating the corresponding prediction
     LT_prediction = np.dot(LTP_codebook[:,LTP_index],LTP_gain)
@@ -1386,7 +1067,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     # Finding speech_frame components in the filtered codebook
     # taking long term prediction into account 
     sig = sig - np.dot(LTP_codebook_filt[:,LTP_index],LTP_gain)
-    gains, indices = find_Nbest_components(sig,codebook_filt, N_components)
+    gains, indices = fNbc.find_Nbest_components(sig,codebook_filt, N_components)
     
     # Generating the corresponding excitation as a weighted sum of
     # codebook vectors plus long-term prediction
@@ -1469,7 +1150,7 @@ plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
 # %%
-plot_spectrogram(synt_speech_CELP)
+ps.plot_spectrogram(synt_speech_CELP)
 # %%
 '''
 Appendix 1: MPE as a particular case of CELP
@@ -1506,7 +1187,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
 
     # LPC analysis of order 10
     windowed_frame = input_frame*np.hamming(frame_length)
-    a_coefficients, sigma_squared = lpc_calculation(windowed_frame, 10)
+    a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(windowed_frame, 10)
     sigma = np.sqrt(sigma_squared)
         
     # Computing the coefficients of A(z/gamma)
@@ -1530,7 +1211,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     # Finding the best predictor in the LTP codebook
     ringing, x = signal.lfilter(1, ai_perceptual, np.zeros(frame_shift),zi=z_gamma_e)
     sig = perceptual_speech - ringing
-    LTP_gain, LTP_index = find_Nbest_components(sig,LTP_codebook_filt, 1)
+    LTP_gain, LTP_index = fNbc.find_Nbest_components(sig,LTP_codebook_filt, 1)
     
     # Generating the corresponding prediction
     LT_prediction = np.dot(LTP_codebook[:,LTP_index],LTP_gain)
@@ -1538,7 +1219,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     # Finding speech_frame components in the filtered codebook
     # taking long term prediction into account 
     sig = sig - np.dot(LTP_codebook_filt[:,LTP_index],LTP_gain)
-    gains, indices = find_Nbest_components(sig,codebook_filt, N_components)
+    gains, indices = fNbc.find_Nbest_components(sig,codebook_filt, N_components)
     
     # Generating the corresponding excitation as a weighted sum of
     # codebook vectors plus long-term prediction
