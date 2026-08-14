@@ -250,7 +250,7 @@ hold off;
 % Let us now check the output of the PQMF filter bank when fed with 2
 % seconds of violin monophonic signal sampled at 44.100 Hz.
 
-[input_signal,Fs]=audioread('violin.wav');
+[input_signal, Fs] = audioread('..\audio_samples\violin.wav');
 clf;
 specgram(input_signal,1024,Fs,256);
 soundsc(input_signal,Fs);
@@ -329,7 +329,7 @@ snr_PQMF=snr(input_signal(1:end-511),output_signal(512:end),0)
 % A 4-sample DFT, for instance, can implement a 4-channel filter bank
 % whose subband filters are the time-reversed of the lines of the 4x4 DFT
 % matrix. Applying it to a chirp is straightforward.
-
+clear output_signal;
 Fs=8000;
 input_signal=chirp((1:4*Fs)/Fs,0,4,4000);
 
@@ -350,7 +350,6 @@ for i=1:length(input_signal)/4
     output_signal(4*(i-1)+1:4*(i-1)+4)=output_frame';
 
 end;
-
 %soundsc(output_signal,Fs);
 
 %%
@@ -361,8 +360,8 @@ end;
 % section on PQMF), but the side lobes are very high. This does not make it
 % a good candidate for sub-band coding. 
 
-tmp=[1 ; exp(-j*pi/2) ; exp(-j*pi) ; exp(-j*3*pi/2)];
-DFT_matrix_4x4=vander(tmp); 
+tmp=[1 ; exp(-j*pi/2) ; exp(-j*pi) ; exp(-j*3*pi/2)]
+DFT_matrix_4x4=vander(tmp)
 
 for i=1:4
     [H,W]=freqz(fliplr(DFT_matrix_4x4(i,:)),1,'whole');
@@ -370,6 +369,7 @@ for i=1:4
 end
 xlabel('Normalized frequency (*pi rad/sample)'); ylabel('Magnitude (dB)');
 hold off;
+
 
 %%
 % In general, the length of the impulse responses of the analysis and
@@ -392,7 +392,7 @@ for i = 0:31
     PQMF32_Gfilters(i+1,:) = hn.*cos(t2);
 end
 
-[input_signal,Fs]=audioread('violin.wav');
+[input_signal,Fs]=audioread('..\audio_samples\violin.wav');
 
 % Block-based sub-band filtering
 input_frame=zeros(512,1);
@@ -416,6 +416,7 @@ for i=1:(length(input_signal)-512+32)/32
         output_signal((i-1)*32+1:(i-1)*32+512)+output_frame;
     
 end
+output_signal
 
 %%
 % Obviously we get the same results as before, and the overall SNR is
@@ -432,7 +433,7 @@ legend('Signal PSD', 'Error PSD');
 xlabel('Frequency (Hz)'); ylabel('Magnitude (dB)');
 
 snr_lapped=snr(input_signal(512:end-512),...
-                     output_signal(512:end-512),0)
+                     output_signal(512:end-512),0);
 
 %% 5. Perceptual audio coding
 % The sub-band filtering process developed in the previous Sections
@@ -453,7 +454,7 @@ for i = 0:31
     PQMF32_Gfilters(i+1,:) = hn.*cos(t2);
 end
 
-[input_signal,Fs]=audioread('violin.wav');
+[input_signal,Fs]=audioread('..\audio_samples\violin.wav');
 
 % Block-based sub-band analysis filtering
 input_frame=zeros(512,1);
@@ -637,7 +638,7 @@ f = (0:255)/512*44100;
 auditory_threshold_dB = 3.64*((f/1000).^-0.8) - ...
     6.5*exp(-0.6.*((f/1000)-3.3).^2) + 0.001*((f/1000).^4);
 plot(f, frame_psd_dBSPL, f, min_threshold,'.r', ...
-    f, auditory_threshold_dB, '-.k');
+    f, auditory_threshold_dB, '-.w');
 hold off;
 axis([0 22050 -20 100]);
 legend('Signal PSD', 'Min. threshold per sub-band','Absolute threshold');
@@ -670,7 +671,7 @@ xlabel('Frequency (Hz)'); ylabel('Magnitude (dB)');
 
 stairs((0:32)/32*22050,[SMR SMR(32)]);
 hold on;
-stairs((0:32)/32*22050,[SNR SNR(32)],'--');
+stairs((0:32)/32*22050,[SNR SNR(32)],'-');
 axis([0 22050 -20 100]);
 legend('SMR', 'SNR');
 xlabel('Frequency (Hz)'); ylabel('Magnitude (dB)');
@@ -766,7 +767,7 @@ xlabel('Time (samples at Fs/32)'); ylabel('Amplitude');
 % cannot be heard. 
 
 error=output_signal(1:end)-input_signal(1:end);
-
+error(1:10)
 [signal_psd,w]=periodogram(input_signal(11001:12024),...
     hamming(1024));
 [error_psd,w]=periodogram(error(11001:12024),...

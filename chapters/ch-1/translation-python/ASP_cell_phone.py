@@ -1,3 +1,11 @@
+
+from scipy.io import wavfile
+from scipy import signal
+from scipy.linalg import solve_toeplitz
+import numpy as np
+import matplotlib.pyplot as plt
+import sounddevice as sd
+
 # %%
 '''
 Chapter 1 - How is speech processed in a cell phone conversation?
@@ -18,15 +26,12 @@ Copyright T. Dutoit, N. Moreau, 2008
 
 Python translation by Ediz Aldogan.
 '''
-
-import matplotlib.pyplot as plt
 # Set global figure parameter 
 # This makes all the background colors of figures white by default.
 # (MATLAB equivalent: set(0,'defaultFigureColor','w'))
 plt.rcParams['figure.facecolor'] = 'white'
 plt.rcParams['axes.facecolor'] = 'white'
 plt.rcParams['savefig.facecolor'] = 'white' 
-
 DEBUG_MODE = False
 
 # %%
@@ -40,8 +45,6 @@ web)
 # MATLAB normalizes the value between the range -1 and 1 with the function audioread.
 # However, Python reads the raw format which ranges between -32768 and 32767
 # To normalize we use the following equation: audio = audio_raw / 32768
-import numpy             as np
-from scipy.io            import wavfile
 sample_rate, audio_raw   = wavfile.read("../audio_samples/speech.wav")
 audio = audio_raw / 32768
 total_duration       = len(audio)
@@ -56,6 +59,13 @@ plt.xlabel  ("Time [samples]")
 plt.ylabel  ("Amplitude")
 plt.plot    (speech_time, audio)
 plt.grid    (True)
+
+# append silence to the end of the data otherwise the hardware falls behind 
+#  the audio gets cut off on its last few moments.
+silence = np.zeros(int(2000), dtype=audio_raw.dtype)
+audio_raw_padded = np.concatenate((audio_raw, silence))
+sd.play(audio_raw_padded,8000)
+sd.wait()
 
 # %%
 '''
@@ -73,14 +83,12 @@ For a better graphical result, we choose a wideband spectrogram, by
 imposing the length of each frame to be approximately 5 ms long (40
 samples) and a hamming weighting window.
 '''
-from scipy import signal
-
 def plot_spectrogram(audio, fs=8000):
     """
     Replicates MATLAB's specgram(speech, 512, 8000, hamming(40)) function.
     Uses a 40-sample Hamming window for formant visualization.
     """
-    f, t, Sxx = signal.spectrogram(audio, 
+    f, t, Sxx = signal.spectrogram(audio,
                                    fs=fs,
                                    window=np.hamming(40),
                                    nperseg=40,
@@ -96,7 +104,8 @@ def plot_spectrogram(audio, fs=8000):
 
 plot_spectrogram(audio)
 
-ZOOM_EN = True
+# to be used in my report
+ZOOM_EN = False
 if ZOOM_EN:
     fs=8000
     f, t, Sxx = signal.spectrogram(audio[500:1500], 
@@ -113,7 +122,6 @@ if ZOOM_EN:
     plt.ylabel      ('Frequency (Hz)')
     plt.xlabel      ('Time (s)')
     plt.ylim        (0,500)
-    plt.show        ()
 
 # %%
 '''
@@ -213,10 +221,6 @@ the prediction coefficients (ai) and the variance of the residual signal
 Notice we do not apply windowing prior to LP analysis now, as it has 
 no tutorial benefit. We will add it in subsequent Sections.
 '''
-# Levinson Durbin Algorithm Alternative
-from scipy.linalg import solve_toeplitz
-
-
 def lpc_toeplitz(frame, order):
     # Autocorrelation vector r=[R[0] R[1] R[2] ... R[p]]
     r = [sum(frame[n] * frame[n+p] for n in range(len(frame)-p)) for p in range(order + 1)]
@@ -448,7 +452,6 @@ of the two-sided periodogram in [0, Fs/2], we claim Fs=2.
 '''
 plot_periodogram(input_frame_for_letter_e, 2) # fs=2
 plt.plot(W/np.pi,20*np.log10(sigma*abs(H)));
-plt.show()
 '''
 PHYSICAL AND MATHEMATICAL INTERPRETATION OF THE PLOTS:
 1. The Periodogram (Blue Line - The Source / Vocal Cords):
@@ -749,9 +752,6 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     synt_speech_V.extend(synt_frame)
 
 synt_speech_V = np.array(synt_speech_V)
-
-# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE
-
 plt.figure  (figsize=(10,8))
 plt.plot    (synt_speech_V)
 plt.title   ('Synthesized Speech Waveform (F0 = 200Hz)')
@@ -802,9 +802,6 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     synt_speech_V.extend(synt_frame)
 
 synt_speech_V = np.array(synt_speech_V)
-
-# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE
-
 plt.figure  (figsize=(10,8))
 plt.plot    (synt_speech_V)
 plt.title   ('Synthesized Speech (smoothed)')
@@ -812,6 +809,10 @@ plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
+silence = np.zeros(int(2000), dtype=synt_speech_V.dtype)
+synt_speech_V_padded = np.concatenate((synt_speech_V, silence))
+sd.play(synt_speech_V_padded,8000)
+sd.wait()
 
 # %%
 '''
@@ -825,7 +826,6 @@ plt.title   ('Zooming on 30ms of LPC speech (smoothly evolving periods)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
-plt.show()
 
 # %%
 '''
@@ -877,9 +877,6 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     synt_speech_V.extend(synt_frame)
 
 synt_speech_V = np.array(synt_speech_V)
-
-# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE
-
 plt.figure  (figsize=(10,8))
 plt.plot    (synt_speech_V)
 plt.title   ('Synthesized Speech (offset)')
@@ -887,12 +884,17 @@ plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
+silence = np.zeros(int(2000), dtype=synt_speech_V.dtype)
+synt_speech_V_padded = np.concatenate((synt_speech_V, silence))
+sd.play(synt_speech_V_padded,8000)
+sd.wait()
+
 # %%
 '''
 5. Unvoiced linear prediction synthesis of a speech file
 Synthesizing the complete speech file as LPC unvoiced speech is easy.
 '''
-synt_speech_V = []
+synt_speech_UV = []
 z = np.zeros(10) # internal variables of the synthesis filter
 
 for i in range(int((len(audio)-160)/80)): # number of frames
@@ -907,18 +909,20 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     gain = sigma
     synt_frame, z = signal.lfilter([gain], a_coefficients, excitation, zi=z)
     # Concatenating synthesis frames
-    synt_speech_V.extend(synt_frame)
+    synt_speech_UV.extend(synt_frame)
 
-synt_speech_V = np.array(synt_speech_V)
-
-# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE
-
+synt_speech_UV = np.array(synt_speech_UV)
 plt.figure  (figsize=(10,8))
 plt.plot    (synt_speech_V)
 plt.title   ('Synthesized Speech (offset)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
+
+silence = np.zeros(int(2000), dtype=synt_speech_UV.dtype)
+synt_speech_UV_padded = np.concatenate((synt_speech_UV, silence))
+sd.play(synt_speech_UV_padded,8000)
+sd.wait()
 
 # %%
 '''
@@ -1008,16 +1012,17 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     synt_speech_LPC10.extend(synt_frame)
 
 synt_speech_LPC10 = np.array(synt_speech_LPC10)
-
-# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE
-
 plt.figure  (figsize=(10,8))
 plt.plot    (synt_speech_LPC10)
 plt.title   ('Synthesized Speech (Original F0)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
-plt.show()
+
+silence = np.zeros(int(2000), dtype=synt_speech_LPC10.dtype)
+synt_speech_LPC10_padded = np.concatenate((synt_speech_LPC10, silence))
+sd.play(synt_speech_LPC10_padded,8000)
+sd.wait()
 
 # %%
 '''
@@ -1171,7 +1176,10 @@ plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
-# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
+silence = np.zeros(int(2000), dtype=synt_speech_CELP.dtype)
+synt_speech_CELP_padded = np.concatenate((synt_speech_CELP, silence))
+sd.play(synt_speech_CELP_padded,8000)
+sd.wait()
 
 # %%
 '''
@@ -1297,7 +1305,10 @@ plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
-# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
+silence = np.zeros(int(2000), dtype=synt_speech_CELP.dtype)
+synt_speech_CELP_padded = np.concatenate((synt_speech_CELP, silence))
+sd.play(synt_speech_CELP_padded,8000)
+sd.wait()
 
 # %%
 '''
@@ -1428,7 +1439,10 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
 
 synt_speech_CELP = np.array(synt_speech_CELP)
 
-# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
+silence = np.zeros(int(2000), dtype=synt_speech_CELP.dtype)
+synt_speech_CELP_padded = np.concatenate((synt_speech_CELP, silence))
+sd.play(synt_speech_CELP_padded,8000)
+sd.wait()
 
 # %%
 '''
@@ -1453,7 +1467,6 @@ plt.title   ('Synthesized Speech with CELP (N=2)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
-plt.show()
 
 # %%
 plot_spectrogram(synt_speech_CELP)
@@ -1573,11 +1586,13 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
         plt.legend(loc='upper right')
         plt.grid(True)
         plt.tight_layout()
-        plt.show()
 
 synt_speech_MPE = np.array(synt_speech_MPE)
 
-# A SOUND PLAYER FUNCTION CAN BE IMPLEMENTED HERE (synt_speech_CELP,8000)
+silence = np.zeros(int(2000), dtype=synt_speech_MPE.dtype)
+synt_speech_MPE_padded = np.concatenate((synt_speech_MPE, silence))
+sd.play(synt_speech_MPE_padded,8000)
+sd.wait()
 
 # %%
 '''
