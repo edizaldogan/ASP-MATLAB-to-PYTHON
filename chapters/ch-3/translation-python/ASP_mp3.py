@@ -70,8 +70,9 @@ t1  = 4                     # Time at which f1 is specified.
 f1  = 4000                  # Frequency (e.g. Hz) of the waveform at time t1.
 input_signal = signal.chirp(t,f0,t1,f1)
 
+volume_factor = 0.005
 silence = np.zeros(int(2000), dtype=input_signal.dtype)
-input_signal_padded = np.concatenate((input_signal, silence))
+input_signal_padded = np.concatenate((input_signal*volume_factor, silence))
 sd.play(input_signal_padded,Fs)
 sd.wait()
 
@@ -119,7 +120,7 @@ sweeping from 4000Hz to 0Hz. That's why we observe a second red line on
 the opposite diagonal.
 '''
 silence = np.zeros(int(2000), dtype=upsampled.dtype)
-upsampled_padded = np.concatenate((upsampled, silence))
+upsampled_padded = np.concatenate((upsampled*volume_factor, silence))
 sd.play(upsampled_padded,Fs)
 sd.wait()
 
@@ -173,7 +174,7 @@ spectrogram.plot_spectrogram(G0_output[1000:],1024,Fs,512)
 
 audio_1 = G0_output[1000:]
 silence = np.zeros(int(2000), dtype=audio_1.dtype)
-audio_1_padded = np.concatenate((audio_1, silence))
+audio_1_padded = np.concatenate((audio_1*volume_factor, silence))
 sd.play(audio_1_padded,Fs)
 sd.wait()
 
@@ -196,7 +197,7 @@ spectrogram.plot_spectrogram(G0_output[2000:],1024,Fs,256)
 
 audio_2 = G0_output[2000:]
 silence = np.zeros(int(2000), dtype=audio_2.dtype)
-audio_2_padded = np.concatenate((audio_2, silence))
+audio_2_padded = np.concatenate((audio_2*volume_factor, silence))
 sd.play(audio_2_padded,Fs)
 sd.wait()
 
@@ -218,7 +219,7 @@ spectrogram.plot_spectrogram(G1_output[2000:],1024,Fs,256)
 
 audio_3 = G1_output[2000:]
 silence = np.zeros(int(2000), dtype=audio_3.dtype)
-audio_3_padded = np.concatenate((audio_3, silence))
+audio_3_padded = np.concatenate((audio_3*volume_factor, silence))
 sd.play(audio_3_padded,Fs)
 sd.wait()
 
@@ -234,7 +235,7 @@ spectrogram.plot_spectrogram(synt_signal[2000:],1024,Fs,256)
 
 audio_4 = synt_signal[2000:]
 silence = np.zeros(int(2000), dtype=audio_4.dtype)
-audio_4_padded = np.concatenate((audio_4, silence))
+audio_4_padded = np.concatenate((audio_4*volume_factor, silence))
 sd.play(audio_4_padded,Fs)
 sd.wait()
 
@@ -259,7 +260,7 @@ plt.ylabel("Amplitude")
 plt.grid(True)
 
 silence = np.zeros(int(2000), dtype=error.dtype)
-error = np.concatenate((error, silence))
+error = np.concatenate((error*volume_factor, silence))
 sd.play(error,Fs)
 sd.wait()
 
@@ -311,7 +312,7 @@ G0_output=signal.lfilter(G0_QMF,1,upsampled)
 spectrogram.plot_spectrogram(G0_output,1024,Fs,256)
 '''
 silence = np.zeros(int(2000), dtype=G0_output.dtype)
-G0_output_padded = np.concatenate((G0_output, silence))
+G0_output_padded = np.concatenate((G0_output*volume_factor, silence))
 sd.play(G0_output_padded,Fs)
 sd.wait()
 '''
@@ -343,7 +344,7 @@ synt_signal=G0_output+G1_output
 spectrogram.plot_spectrogram(synt_signal,1024,Fs,256)
 '''
 silence = np.zeros(int(2000), dtype=synt_signal.dtype)
-synt_signal = np.concatenate((synt_signal, silence))
+synt_signal = np.concatenate((synt_signal*volume_factor, silence))
 sd.play(synt_signal,Fs)
 sd.wait()
 '''
