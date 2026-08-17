@@ -21,3 +21,4 @@ def plot_spectrogram(audio, fs=8000):
     plt.title       ("Spectrogram")
     plt.ylabel      ('Frequency (Hz)')
     plt.xlabel      ('Time (s)')
+    

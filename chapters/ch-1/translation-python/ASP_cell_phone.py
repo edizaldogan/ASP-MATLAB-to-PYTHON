@@ -533,7 +533,7 @@ synthesis filter are implicitly reset to zero. We can avoid this problem
 by maintaining the internal variables of the filter from the end of each
 frame to the beginning of the next one.
 '''
-synt_speech_V = []
+synt_speech_V_zi = []
 z = np.zeros(10) # internal variables of the synthesis filter
 
 for i in range(int((len(audio)-160)/80)): # number of frames
@@ -550,19 +550,19 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     # Applying the synthesis filter with initial condition for smoothness
     synt_frame, z = signal.lfilter([gain], a_coefficients, excitation, zi=z)
     # Concatenating synthesis frames
-    synt_speech_V.extend(synt_frame)
+    synt_speech_V_zi.extend(synt_frame)
 
-synt_speech_V = np.array(synt_speech_V)
+synt_speech_V_zi = np.array(synt_speech_V_zi)
 plt.figure  (figsize=(10,8))
-plt.plot    (synt_speech_V)
+plt.plot    (synt_speech_V_zi)
 plt.title   ('Synthesized Speech (smoothed)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
-silence = np.zeros(int(2000), dtype=synt_speech_V.dtype)
-synt_speech_V_padded = np.concatenate((synt_speech_V, silence))
-sd.play(synt_speech_V_padded,8000)
+silence = np.zeros(int(2000), dtype=synt_speech_V_zi.dtype)
+synt_speech_V_zi_padded = np.concatenate((synt_speech_V_zi, silence))
+sd.play(synt_speech_V_zi_padded,8000)
 sd.wait()
 
 # %%
@@ -572,8 +572,15 @@ beginning of the next one, which results in more smoothly evolving
 periods.
 '''
 plt.figure  (figsize=(10,8))
-plt.plot    (synt_speech_V[3299:3539])
-plt.title   ('Zooming on 30ms of LPC speech (smoothly evolving periods)')
+plt.plot    (synt_speech_V_zi[3299:3539])
+plt.title   ('Zooming on 30ms of LPC speech (zi filter memory applied)')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_V[3299:3539]-synt_speech_V_zi[3299:3539])
+plt.title   ('Zooming on 30ms of LPC speech (difference)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
@@ -585,7 +592,7 @@ different from a sub-multiple of 80 samples (say, 70 samples), we
 additionally need to take care of a possible pitch period offset in the
 excitation signal.
 '''
-synt_speech_V = []
+synt_speech_V_offset = []
 z = np.zeros(10) # internal variables of the synthesis filter
 offset = 0 # Offset of the next pitch pulse with respect to the 
 # start of the current frame.
@@ -625,19 +632,26 @@ for i in range(int((len(audio)-160)/80)): # number of frames
     # Applying the synthesis filter with initial condition for smoothness
     synt_frame, z = signal.lfilter([gain], a_coefficients, excitation, zi=z)
     # Concatenating synthesis frames
-    synt_speech_V.extend(synt_frame)
+    synt_speech_V_offset.extend(synt_frame)
 
-synt_speech_V = np.array(synt_speech_V)
+synt_speech_V_offset = np.array(synt_speech_V_offset)
 plt.figure  (figsize=(10,8))
-plt.plot    (synt_speech_V)
+plt.plot    (synt_speech_V_offset)
 plt.title   ('Synthesized Speech (offset)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
-silence = np.zeros(int(2000), dtype=synt_speech_V.dtype)
-synt_speech_V_padded = np.concatenate((synt_speech_V, silence))
-sd.play(synt_speech_V_padded,8000)
+plt.figure  (figsize=(10,8))
+plt.plot    (synt_speech_V_offset[3299:3539])
+plt.title   ('Zooming on 30ms of LPC speech (offset applied)')
+plt.xlabel  ('Time (samples)')
+plt.ylabel  ('Amplitude')
+plt.grid    (True)
+
+silence = np.zeros(int(2000), dtype=synt_speech_V_offset.dtype)
+synt_speech_V_offset_padded = np.concatenate((synt_speech_V_offset, silence))
+sd.play(synt_speech_V_offset_padded,8000)
 sd.wait()
 
 # %%
@@ -664,8 +678,8 @@ for i in range(int((len(audio)-160)/80)): # number of frames
 
 synt_speech_UV = np.array(synt_speech_UV)
 plt.figure  (figsize=(10,8))
-plt.plot    (synt_speech_V)
-plt.title   ('Synthesized Speech (offset)')
+plt.plot    (synt_speech_UV)
+plt.title   ('Synthesized Speech (unvoiced)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
@@ -778,8 +792,12 @@ We start with 30 ms LP analysis frames, shifted every 5 ms, and a
 codebook size of 512 vectors, from which 10 components are chosen for
 every 5 ms synthesis frame.
 '''
-frame_length = 240      # length of the LPC analysis frame
-frame_shift = 40        # length of the excitation and synthesis frames
+# long window used to get an accurate mathematical snapshot of vocal tract:
+frame_length = 240      # length of the LPC analysis frame 30ms
+
+# actual update rate of excitation and synthesis:
+frame_shift = 40        # length of the excitation and synthesis frames 5ms
+
 codebook_size = 512     # number of vectors in the codebook
 N_components = 10       # number of codebook components per frame
 
@@ -789,8 +807,10 @@ z_synt = np.zeros(10) # synthesis filter
 synt_speech_CELP = []
 
 # Generating the stochastic excitation codebook
-codebook = np.random.randn(frame_shift,codebook_size)
+codebook = np.random.randn(frame_shift,codebook_size) # 40 rows 512 columns
 
+# calculate total number of 5 ms hops required to sweep through entire audio:
+# int((len(audio)-frame_length+frame_shift)/frame_shift)
 for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
 
     input_frame = audio[i*frame_shift : i*frame_shift+frame_length]
@@ -800,7 +820,8 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     a_coefficients, sigma_squared = lpc_bfc.lpc_calculation(windowed_frame, 10)
     sigma = np.sqrt(sigma_squared)
     
-    # Extracting frame_shift samples from the LPC analysis frame
+    # Extracting frame_shift samples from the LPC analysis frame, 
+    # middle fourty samples of the analysisi frame:
     speech_frame = input_frame[int((frame_length-frame_shift)/2):int((frame_length-frame_shift)/2+frame_shift)]
     
     # Filtering the codebook (all column vectors)
@@ -808,9 +829,9 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     
     # Finding speech_frame components in the filtered codebook
     # taking into account the transient stored in the internal variables of
-    # the synthesis filter  
+    # the synthesis filter
     ringing,last_situation  = signal.lfilter(1, a_coefficients, np.zeros(frame_shift), zi=z_synt)
-    sig = speech_frame - ringing
+    sig = speech_frame - ringing # subtract the existing momentum from the previous frame.
     gains, indices = fNbc.find_Nbest_components(sig, codebook_filt, N_components)
     
     # Generating the corresponding excitation as a weighted sum of
@@ -891,7 +912,7 @@ LTP_max_delay   = 256       # maximum long-term prediction delay (in samples)
 # Initializing internal variables
 z_inv=np.zeros(10)  # inverse filter
 z_synt=np.zeros(10) # synthesis filter
-synt_speech_CELP = []
+synt_speech_CELP_LTP = []
 excitation_buffer=np.zeros(LTP_max_delay+frame_shift)
 
 # Building the stochastic excitation codebook. The following line is
@@ -941,7 +962,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     # Synthesizing CELP speech, and keeping track of the synthesis filter 
     # internal variables
     synt_frame, z_synt = signal.lfilter(1, a_coefficients, excitation, zi=z_synt)
-    synt_speech_CELP.extend(synt_frame)
+    synt_speech_CELP_LTP.extend(synt_frame)
    
     # Updating the excitation buffer for long-term prediction
     excitation_buffer[:LTP_max_delay]=excitation_buffer[frame_shift:LTP_max_delay+frame_shift]
@@ -978,17 +999,17 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
         plt.grid(True)
         plt.tight_layout()
 
-synt_speech_CELP = np.array(synt_speech_CELP)
+synt_speech_CELP_LTP = np.array(synt_speech_CELP_LTP)
 plt.figure  (figsize=(10,8))
-plt.plot    (synt_speech_CELP)
+plt.plot    (synt_speech_CELP_LTP)
 plt.title   ('Synthesized Speech with CELP (N=5)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
-silence = np.zeros(int(2000), dtype=synt_speech_CELP.dtype)
-synt_speech_CELP_padded = np.concatenate((synt_speech_CELP, silence))
-sd.play(synt_speech_CELP_padded,8000)
+silence = np.zeros(int(2000), dtype=synt_speech_CELP_LTP.dtype)
+synt_speech_CELP_LTP_padded = np.concatenate((synt_speech_CELP_LTP, silence))
+sd.play(synt_speech_CELP_LTP_padded,8000)
 sd.wait()
 
 # %%
@@ -1020,7 +1041,7 @@ z_inv       =   np.zeros(10) # inverse filter
 z_synt      =   np.zeros(10) # synthesis filter
 z_gamma_s   =   np.zeros(10) # perceptual filter applied to speech
 z_gamma_e   =   np.zeros(10) # perceptual filter applied to excitation
-synt_speech_CELP = []
+synt_speech_CELP_LTP_PF = []
 excitation_buffer= np.zeros(LTP_max_delay+frame_shift)
 
 # Building the stochastic excitation codebook. The following line is
@@ -1076,7 +1097,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     # Synthesizing CELP speech, and keeping track of the synthesis filter 
     # internal variables
     synt_frame, z_synt = signal.lfilter(1, a_coefficients, excitation, zi=z_synt)
-    synt_speech_CELP.extend(synt_frame)
+    synt_speech_CELP_LTP_PF.extend(synt_frame)
    
     # Updating the internal variables of the percpetual filter applied to
     # the excitation
@@ -1118,11 +1139,11 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
         plt.grid(True)
         plt.title('Spectral Envelope and Error Filtering (Frame 135)')
 
-synt_speech_CELP = np.array(synt_speech_CELP)
+synt_speech_CELP_LTP_PF = np.array(synt_speech_CELP_LTP_PF)
 
-silence = np.zeros(int(2000), dtype=synt_speech_CELP.dtype)
-synt_speech_CELP_padded = np.concatenate((synt_speech_CELP, silence))
-sd.play(synt_speech_CELP_padded,8000)
+silence = np.zeros(int(2000), dtype=synt_speech_CELP_LTP_PF.dtype)
+synt_speech_CELP_LTP_PF_padded = np.concatenate((synt_speech_CELP_LTP_PF, silence))
+sd.play(synt_speech_CELP_LTP_PF_padded,8000)
 sd.wait()
 
 # %%
@@ -1143,14 +1164,14 @@ coefficients only once every four frame.
 '''
 
 plt.figure  (figsize=(10,8))
-plt.plot    (synt_speech_CELP)
+plt.plot    (synt_speech_CELP_LTP_PF)
 plt.title   ('Synthesized Speech with CELP (N=2)')
 plt.xlabel  ('Time (samples)')
 plt.ylabel  ('Amplitude')
 plt.grid    (True)
 
 # %%
-ps.plot_spectrogram(synt_speech_CELP)
+ps.plot_spectrogram(synt_speech_CELP_LTP_PF)
 # %%
 '''
 Appendix 1: MPE as a particular case of CELP
@@ -1339,3 +1360,5 @@ Cell 4 (MPE):
     operating at an estimated 19.4 kbps using exactly 5 pulses
     per frame.
 '''
+
+# %%

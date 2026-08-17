@@ -16,15 +16,18 @@ def pitch(frame):
     center = len(lpc_residual) - 1 # center index 239
     C_half = C[center : center + 134] # 134 elements (239-373)
     Cxx = C_half / C_half[0] # normalization # 134 elements
-    Cxx[0:26] = 0
-    # 
+    # Fisrt 26 index are forcefully zeroed. Vocal cords cannot vibrate that fast.
+    # 26 sample period equals 307HZ which is the upper limit for vocal cords.
+    Cxx[0:26] = 0 # we do not pick the lag 0 case!
+    # the autocorrelation matrix of course has the highest correlation at lag 0 
+    # (first element) but we are searching for the pitch, which means the second 
+    # highest peak in this matrix.
     Amax = np.max(Cxx)  # max value
     Imax = np.argmax(Cxx) # index of the max value
 
     # U/UV decision
-    if Amax > 0.20:
+    if Amax > 0.20: # vowel threshold
         T0 = Imax
     else:
         T0 = 0
-
     return T0

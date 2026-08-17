@@ -41,3 +41,4 @@ def plot_periodogram(frame, fs):
     plt.xlabel  ('Normalized Frequency ($\\times \\pi$ rad/sample)')
     plt.xlim    (0, 1)
     plt.grid    (True)
+    

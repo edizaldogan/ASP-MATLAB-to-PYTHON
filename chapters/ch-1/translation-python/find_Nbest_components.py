@@ -1,5 +1,5 @@
-import numpy as np
 
+import numpy as np
 
 def find_Nbest_components(sig, codebook_vectors, N):
     """
@@ -23,16 +23,21 @@ def find_Nbest_components(sig, codebook_vectors, N):
     for k in range(N):
         max_norm = 0
         best_j = 0
-        
+
+        # sweeping the columns
         for j in range(L):
             # MATLAB: beta = codebook_vectors(:,j)' * signal
-            beta = np.dot(codebook_vectors[:, j], current_signal)
+            # beta is a measure of similarity.
+            # if codeword matches current signal beta is big!
+            beta = np.dot(codebook_vectors[:, j], current_signal) 
             
             if codebook_norms[j] != 0:
+                # divide beta by the codeword norm to be fair about volumes.
                 component_norm = np.abs(beta) / codebook_norms[j]
             else:
                 component_norm = 0
-                
+
+            # pick the component with highest norm
             if component_norm > max_norm:
                 gains[k] = beta / (codebook_norms[j]**2)
                 best_j = j
