@@ -21,7 +21,6 @@ Python translation by Ediz Aldogan.
 import numpy as np
 import matplotlib.pyplot as plt
 import sounddevice as sd
-import importlib
 from scipy.io import wavfile
 from scipy import signal
 
@@ -29,11 +28,6 @@ import pitch
 import find_Nbest_components as fNbc
 import lpc_brute_force_calculation as lpc_bfc
 import visual_tools as vt
-
-importlib.reload(pitch)
-importlib.reload(fNbc)
-importlib.reload(lpc_bfc)
-importlib.reload(vt)
 
 plt.rcParams['figure.facecolor'] = 'white'
 plt.rcParams['axes.facecolor'] = 'white'
