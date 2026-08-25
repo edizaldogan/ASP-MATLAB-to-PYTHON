@@ -9,7 +9,13 @@ Ensure this remains one level above the working scripts.
 1. **Clone the repository and install Python libraries:**
 ```bash
 git clone https://github.com/edizaldogan/ASP-MATLAB-to-PYTHON.git
+```
+
+```bash
 cd ASP-MATLAB-to-PYTHON
+```
+
+```bash
 pip install -r requirements.txt
 ```
 
@@ -18,10 +24,10 @@ To view the output figures and execute the code cell-by-cell, install the offici
 
 ## Usage
 These scripts are formatted with `# %%` markers and are designed to be run interactively on a cell-by-cell basis. 
-This allows you to view the signal processing plots and data outputs side-by-side with the code.
+This allows you to view the output figures side-by-side with the code.
 
 1. Open the project folder in Visual Studio Code.
-2. Navigate to the relevant subfolder (e.g., ``/chapters/ch-1/translation-clean-python``) and open the target script.
-3. Execute the code cell-by-cell by clicking the **Run Cell** text above each block, or by pressing the `Ctrl + Enter` keyboard shortcut. The **Run Above** option can also be used for quicker action.
+2. Navigate to the relevant subfolder (e.g., `chapters/ch-1/translation-clean-python`) and open the target script.
+3. Execute the code cell-by-cell by clicking the **Run Cell** text above each block, or by pressing the `Shift + Enter` keyboard shortcut.
 
-
+> **Note:** Because later cells depend on variables calculated earlier, executing cells out of order will result in errors. Always run the cells sequentially, or utilize the **Run Above** button for quicker execution.
