@@ -7,6 +7,7 @@ Ensure this remains one level above the working scripts.
 
 ## Installation
 1. **Clone the repository and install Python libraries:**
+Open your terminal in the directory where you want the project folder to be created, then run:
 ```bash
 git clone https://github.com/edizaldogan/ASP-MATLAB-to-PYTHON.git
 ```
