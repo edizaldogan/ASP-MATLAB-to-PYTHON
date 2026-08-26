@@ -45,9 +45,9 @@ In addition to the cell-by-cell scripts, this repository includes interactive St
 
 To launch the apps:
 
-1. Open your terminal and ensure you are in the directory of the project (`ASP-MATLAB-to-PYTHON`).
+1. Open your terminal and ensure you are in the directory of the streamlit app (e.g., `streamlit_apps`).
 2. Run the application by passing the script's path to the `streamlit run` command. For example:
    ```bash
-   streamlit run chapters/ch-X/streamlit_app.py
+   streamlit run streamlit_app.py
    ```
 3. The dashboard will automatically open in your default web browser, where you can adjust parameters, and view the visualizations in real-time.
