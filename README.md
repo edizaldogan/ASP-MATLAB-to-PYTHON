@@ -35,7 +35,19 @@ This allows you to view the output figures side-by-side with the code.
     To view the output figures and execute the code cell-by-cell, install the official **Jupyter** extension within Visual Studio Code.
     A recommendation on the bottom right will appear if this extension is not installed; simply click on the prompt to install it.
 
-2. Navigate to the relevant subfolder (e.g., `chapters/ch-1/translation-clean-python`) and open the target script.
+2. Navigate to the relevant subfolder (e.g., `chapters/ch-X/translation-clean-python`) and open the target script.
 3. Execute the code cell-by-cell by clicking the **Run Cell** text above each block, or by pressing the `Shift + Enter` keyboard shortcut.
 
 > **Note:** Because later cells depend on variables calculated earlier, executing cells out of order will result in errors. Always run the cells sequentially, or utilize the **Run Above** button for quicker execution.
+
+## Streamlit Tools
+In addition to the cell-by-cell scripts, this repository includes interactive Streamlit apps.
+
+To launch the apps:
+
+1. Open your terminal and ensure you are in the directory of the project (`ASP-MATLAB-to-PYTHON`).
+2. Run the application by passing the script's path to the `streamlit run` command. For example:
+   ```bash
+   streamlit run chapters/ch-X/streamlit_app.py
+   ```
+3. The dashboard will automatically open in your default web browser, where you can adjust parameters, and view the visualizations in real-time.
