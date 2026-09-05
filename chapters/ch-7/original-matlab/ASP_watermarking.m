@@ -47,7 +47,7 @@ bits = dec2bin(message); % converting each ascii character to a 7-bit string
 bits = bits(:)'; % reshaping to a single string of 1's and 0's
 bits = double(bits) - 48; % converting to a (1x1050) array of 0's and 1's
 symbols = bits*2-1;  % a (1x1050) array of -1's and +1's
-N_bits = length(bits);
+N_bits = length(bits)
 
 %%
 % We then generate the audio signal, the spread spectrum sequence, and the
@@ -108,7 +108,6 @@ xlabel('Time(s)');
 power_baseband_dB=10*log10(var(emitted_signal))
 power_spread_spectrum_dB=10*log10(var(watermark_signal))
 
-close(1);
 clf; 
 subplot(2,1,1)
 % NB: we claim Fs=2 so as to make pwelch return |FFT²/N|, in which the
@@ -130,7 +129,7 @@ watermarked_signal = watermark_signal + audio_signal;
 % signals shows that the watermarked signal is only slightly different from
 % the audio signal, given the SNR we have imposed.
 clf;
-subplot(3,1,1); plot((1:100)/Fs, watermark_signal(1:100), 'k-');
+subplot(3,1,1); plot((1:100)/Fs, watermark_signal(1:100), 'w-');
 set(gca,'ylim',[-1.1 1.1]);
 subplot(3,1,2); plot((1:100)/Fs, audio_signal(1:100));
 subplot(3,1,3); plot((1:100)/Fs, watermarked_signal(1:100), 'r');
@@ -254,7 +253,7 @@ end
 % From now on, the audio signal will be a violin signal sampled at
 % |Fs|=44.100 Hz, of which only the first |N_bits*N_samples| samples will
 % be watermarked. This signal is normalized in [-1,+1].
-audio_signal = wavread('violin.wav', [1 N_bits*N_samples]);
+audio_signal = audioread('violin.wav', [1 N_bits*N_samples]);
 
 soundsc(audio_signal,44100);
 
@@ -400,7 +399,7 @@ for m = 0:N_bits-1
      modulated_signal(m*N_samples+1:m*N_samples+N_samples) = ...
          symbols(m+1)*spread_waveform;
 end
-audio_signal = wavread('violin.wav', [1 N_bits*N_samples]);
+audio_signal = audioread('violin.wav', [1 N_bits*N_samples]);
 
 soundsc(audio_signal,Fs);
 
@@ -958,7 +957,7 @@ for m = 0:N_bits-1
     modulated_signal(m*N_samples+1:m*N_samples+N_samples) = ...
         symbols(m+1)*spread_waveform;
 end
-audio_signal = wavread('violin.wav', [1 N_bits*N_samples]);
+audio_signal = audioread('violin.wav', [1 N_bits*N_samples]);
 
 %% 4.1 Designing the low pass filter
 % First, we design a symmetric FIR low pass filter with |Fc=11| kHz cutoff

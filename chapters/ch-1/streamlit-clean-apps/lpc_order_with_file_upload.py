@@ -13,9 +13,18 @@ st.set_page_config(page_title="Understanding LPC Order",
 
 st.sidebar.header("Controls")
 uploaded_file = st.sidebar.file_uploader("Upload a speech file")
-lpc_order = st.sidebar.slider("LPC Order (p)", min_value=2, max_value=60, value=12, step=1)
+
+if uploaded_file is None:
+    st.title('What happens if we change LPC Order?')
+    st.info(
+        """
+        This program will show if formants are correctly identified for varying 
+        LPC orders.
+        """)
 
 if uploaded_file is not None:
+
+    lpc_order = st.sidebar.slider("LPC Order (p)", min_value=2, max_value=60, value=12, step=1)
 
     audio, fs = sf.read(uploaded_file)
 
@@ -54,7 +63,7 @@ if uploaded_file is not None:
 
     # Entire speech
     t_full = np.arange(len(audio))/fs
-    ax1.plot(t_full, audio, color='blue', linewidth=0.5)
+    ax1.plot(t_full, audio, color='blue', linewidth=0.3)
     ax1.axvspan(start_time, start_time+frame_duration, color='red', label='Selected Frame')
     ax1.set_title("Entire Speech Signal", fontsize=11)
     ax1.set_ylabel("Amplitude")
@@ -64,7 +73,7 @@ if uploaded_file is not None:
     # Zoomed frame
     t_frame = np.arange(frame_size)/fs + start_time
     ax2.plot(t_frame, frame, color='black')
-    ax2.set_title(f"Zoom on Selected Frame ({start_time:.2f}s - {start_time + frame_duration:.2f}s)")
+    ax2.set_title(f"Zoom on Selected 30 ms Frame ({start_time:.2f}s - {start_time + frame_duration:.2f}s)")
     ax2.set_ylabel("Amplitude")
     ax2.margins(x=0)
 
@@ -80,11 +89,11 @@ if uploaded_file is not None:
     plt.tight_layout()
     st.pyplot(fig)
 
-st.info(
-"""
-**Observations for Real Speech:**
-* **p < 6:** Model captures only the general spectral slope, failing to isolate individual vocal tract formants.
-* **p ~ 10-12:** The ideal range for speech sampled at 8 kHz. The main vocal tract formants are clearly visible.
-* **p > 40:** Overfitting occurs. The LPC envelope starts tracing the harmonic fine structure (pitch) and background noise rather than just the vocal tract envelope.
-"""
-)
+    st.info(
+    """
+    **Observations for Real Speech:**
+    * **p < 6:** Model captures only the general spectral slope, failing to isolate individual vocal tract formants.
+    * **p ~ 10-12:** The ideal range for speech sampled at 8 kHz. The main vocal tract formants are clearly visible.
+    * **p > 40:** Overfitting occurs. The LPC envelope starts tracing the harmonic fine structure (pitch) and background noise rather than just the vocal tract envelope.
+    """
+    )

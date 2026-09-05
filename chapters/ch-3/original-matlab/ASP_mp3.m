@@ -416,7 +416,6 @@ for i=1:(length(input_signal)-512+32)/32
         output_signal((i-1)*32+1:(i-1)*32+512)+output_frame;
     
 end
-output_signal
 
 %%
 % Obviously we get the same results as before, and the overall SNR is
