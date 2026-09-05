@@ -228,10 +228,15 @@ __marimo__/
 reports/
 
 chapters/ch-1/figures/
-chapters/ch-1/streamlit_apps/
+chapters/ch-1/streamlit-apps/
 chapters/ch-1/translation-python/
 
 chapters/ch-3/figures/
 chapters/ch-3/refactored-matlab/
-chapters/ch-3/streamlit_apps/
+chapters/ch-3/streamlit-apps/
 chapters/ch-3/translation-python/
+
+chapters/ch-7/figures/
+chapters/ch-7/refactored-matlab/
+chapters/ch-7/streamlit-apps/
+chapters/ch-7/translation-python/
