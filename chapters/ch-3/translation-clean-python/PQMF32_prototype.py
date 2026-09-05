@@ -1,7 +1,7 @@
 
 def PQMF32_prototype():
     '''
-    hn = PQMF32_prototype returns in hn the impulse response of the prototype
+    hn = PQMF32_prototype() returns in hn the impulse response of the prototype
     low-pass symmetric filter of length 512 for building a 32-channel PQMF
     filter bank. This filter is used in the MPEG-1 Layer-1 coder. Its
     normalized bandpass is 1/64 Hz and satisfies the PR condition.   

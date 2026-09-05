@@ -1,14 +1,15 @@
-
+# %%
 from scipy import signal
 from scipy.io import wavfile
 import matplotlib.pyplot as plt
 import numpy as np
+import sounddevice as sd
 import spectrogram
 import snr
 import PQMF32_prototype
 import MPEG1_psycho_acoustic_model1 as mpeg_pam
 import MPEG1_bit_allocation as mpeg_ba
-import sounddevice as sd
+
 
 # %%
 '''
@@ -138,8 +139,7 @@ sd.wait()
 # %%
 '''
 Adding another quarter-band filter before downsampling removes the
-aliasing distortion, i.e. the alias in the second half of the chirp. This synthesis 
-filter can a priori be identical to the analysis filter.
+aliasing distortion, i.e. the alias in the second half of the chirp. This synthesis filter can a priori be identical to the analysis filter.
 '''
 
 H0  = G0
@@ -313,11 +313,11 @@ sd.wait()
 We now build a 32-channel PQMF filter bank, as implemented in the MPEG-1
 Layer-I norm, and check its perfect reconstruction capability.
 
-*Python function involved:*
+*Function involved:*
  
-* |hn = PQMF32_prototype| returns in |hn| the impulse response of the prototype
-low-pass symmetric filter of length 512 for building a 32-channel PQMF
-filter bank. This filter is used in the MPEG-1 Layer-I coder. Its
+* 'hn = PQMF32_prototype()' returns, in 'hn', the impulse response of the
+prototype low-pass symmetric filter of length 512 for building a 32-channel
+PQMF filter bank. This filter is used in the MPEG-1 Layer-I coder. Its
 normalized bandpass is 1/64 Hz and it satisfies the PR condition.  
 '''
 # Load the prototype lowpass filter
@@ -425,16 +425,14 @@ The power of the reconstruction error is about 85 dB below that of the
 signal. Notice the ouput is delayed by 511 samples (since H and G filters
 have a delay of 511/2 samples).
 
-*Python function involved:*
+*Function used:*
  
-* |snr = snr(signal,signal_plus_noise, max_shift,showplot)| returns the
-signal-to-noise ratio computed from the input signals. |Max_shift| gives
-the maximum time-shift (in samples) between |signal| and
-|signal_plus_noise|. The actual time-shift (obtained from the maximum of
-the cross-correlation between both signals) is taken into account to
-estimate the noise. If |showplot| is specified, then the signal,
-signal_plus_noise, and error are plotted, and the SNR is printed on the
-plot.
+* 'snr_value = snr(signal, signal_plus_noise, max_shift)' returns the
+signal-to-noise ratio computed from the input signals. 'max_shift' gives
+the maximum time-shift (in samples) allowed between 'sig' and
+'signal_plus_noise'. The actual time-shift (obtained from the peak of the
+cross-correlation between both signals) is taken into account when
+estimating the noise.
 '''
 error = output_signal[511:] - audio[:-511]
 
@@ -628,13 +626,6 @@ for i in range(int(n_frames)):
      n_bits = 4
      alpha = 2**(n_bits-1)
      quantized_subbands[i,:] = (np.floor(alpha*subbands[i,:]+0.5))/alpha # mid-thread
-
-     # the |uencode| and |udecode| functions do not
-     # properly implement a mid-thread quantizer. Using them here (by
-     # uncommenting the next two lines results in tonal quantization noise.
-     # See Appendix 1 at the end of this script. 
-     # codes = uencode(subbands(i,:),4,1);
-     # quantized_subbands(i,:) = udecode(codes,4);
  
      # Synthesis filters
      output_frame = np.matmul(np.transpose(PQMF32_Gfilters),quantized_subbands[i,:])
@@ -773,18 +764,15 @@ combining their individual thresholds. The maximum of this global
 threshold and the absolute auditory threshold is then taken as the final
 threshold. 
 
-*Python function involved:*
+*Function used:*
  
-* |function [SMR, min_threshold_subband, masking_threshold] = ...
-    MPEG1_psycho_acoustic_model1(frame)|
-Computes the masking threshold (in dB) corresponding to psycho-acoustic
-model #1 used in MPEG-1 Audio (cf  ISO/CEI  norm 11172-3:1993 (F), pp.
-122-128). 
-Input |frame| length should be 512 samples. 
-|min_threshold_subband| returns the minimun of |masking threshold| in each
-of the 32 sub-bands. 
-|SMR| returns 27 signal-to-mask ratios (in dB);
-|SMR|(28-32) are not used. 
+* 'SMR, min_threshold_subband, frame_psd_SPL, masking_threshold =
+  MPEG1_psycho_acoustic_model1(frame)' computes the masking threshold (in dB)
+corresponding to psycho-acoustic model #1 used in MPEG-1 Audio (cf. ISO/CEI
+norm 11172-3:1993 (F), pp. 122-128).
+'frame' must be 512 samples long. 'min_threshold_subband' returns the
+minimum of the masking threshold in each of the 32 sub-bands. 'SMR' returns
+27 signal-to-mask ratios (in dB); SMR(28-32) are not used.
 '''
 
 LTq_i = np.array([])
@@ -820,16 +808,14 @@ priority to sub-bands with higher SMR.
 The resulting SNR in each sub-band should be greater or equal to
 the SMR, so as to push the noise level below the masking threshold.
 
-*Python function involved:*
+*Function used:*
  
-* |function [N_bits,SNR] = MPEG1_bit_allocation(SMR, bit_rate)|
-Implements a simplified bit allocation greedy algorithm.
-|SMR| is the signal-to-mask ratios in each sub-band,
-as defined by the MPEG1 psycho-acoustic model. 
-|bit_rate| is in kbits/s.
-|N_bits| is the number is bits in each sub_band.
-|SNR| is the maximum SNR in each sub-band after quantization, i.e. the
-SNR assuming each sub-band contains a full-range sinusoid.
+* 'N_bits, SNR = MPEG1_bit_allocation(SMR, bit_rate)' implements a
+simplified bit allocation greedy algorithm. 'SMR' is the signal-to-mask
+ratios in each sub-band, as defined by the MPEG-1 psycho-acoustic model.
+'bit_rate' is in kbit/s. 'N_bits' is the number of bits allocated to each
+sub-band. 'SNR' is the maximum SNR in each sub-band after quantization,
+i.e. the SNR assuming each sub-band contains a full-range sinusoid.
 NB: N_bits and SNR are set to zero for sub-bands 28 to 32.
 '''
 
@@ -885,8 +871,6 @@ for k in range(0,int(n_frames),12):
             alpha = 2**(N_bits[j]-1)/scale_factors[j]
             quantized_subbands[k:k+11,j] = np.floor(alpha*subbands[k:k+11,j]+0.5)/alpha # mid-thread
 
-            # codes = uencode(subbands[k:k+11,j],N_bits[j],scale_factors[j],'signed')
-            # quantized_subbands[k:k+11,j]=udecode(codes,N_bits[j],scale_factors[j])
         else:
             quantized_subbands[k:k+11,j] = 0
 
@@ -980,43 +964,5 @@ bits_per_block=int(np.sum(N_bits)*12+270)
 print(f'Bits per block = {bits_per_block} bits')
 bit_rate=int(bits_per_block*44100/384)
 print(f'Bit rate = {bit_rate} bits/s')
-
-# %%
-'''
-Appendix 1: Uniform quantizers
-In Section 5 we have used a mid-thread quantizer. It was tempting to use
-the |uencode| and |udecode| fucntions provided by MATLAB, but a quick
-examination of the quantization charactertic of these functions shows
-they do not implement a real mid-thread quantizer.
-'''
-
-def uencode(u, n, v):
-    u = np.clip(u, -v, v)
-    L = 2**n
-    quantized = np.floor((u+v)*L/(2*v))
-    quantized = np.clip(quantized,0,L-1)
-    return quantized
-
-def udecode(y, n, v):
-    L = 2**n
-    x = (y)*(2*v)/L-v
-    return x
-
-x = np.arange(-1,1,0.01)
-n_bits=3
-codes = uencode(x,n_bits,1)
-y1 = udecode(codes,n_bits,1)
-alpha = 2**(n_bits-1)
-y2 = (np.floor(alpha*x)+0.5)/alpha # mid-rise
-y3 = (np.floor(alpha*x+0.5))/alpha # mid-thread
-
-plt.plot(x,y1,'b',label='uen(de)code')
-plt.plot(x,y2,'r',label='mid-rise')
-plt.plot(x,y3,'g',label='mid-thread')
-plt.plot([0, 0], [-1, 1],color='g')
-plt.plot([-1, 1], [0, 0], color='purple')
-plt.xlim(-1,1)
-plt.ylim(-1,1)
-plt.legend()
 
 # %%

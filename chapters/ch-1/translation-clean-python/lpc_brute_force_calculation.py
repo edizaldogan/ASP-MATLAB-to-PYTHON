@@ -17,7 +17,6 @@ def lpc_calculation(input_frame_for_letter_e, order):
     For a given frame we try to find the optimal ai coefficients that 
     minimizes the expectation of the residual energy argmin(E[e^2[n]]).
     This function solves the Yule-Walker equations by brute-force.
-    Yule-Walker equations are in the following matrix format: R*a=r.
     '''
     autocorrelation_vector = autocorrelation_calculation(input_frame_for_letter_e, order)
 

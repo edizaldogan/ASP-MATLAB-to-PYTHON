@@ -2,19 +2,18 @@
 import numpy as np
 
 def MPEG1_bit_allocation(SMR, bit_rate):
-
-    # |function [N_bits,SNR] = MPEG1_bit_allocation(SMR, bit_rate)|
-    # Implements a simplified bit allocation greedy algorithm.
-    # |SMR| is the signal-to-mask ratios in each sub-band,
-    # as defined by the MPEG1 psycho-acoustic model. 
-    # |bit_rate| is in kbits/s.
-    # |N_bits| is the number is bits in each sub_band.
-    # |SNR| is the maximum SNR in each sub-band after quantization, i.e. the
-    # SNR assuming each sub-band contains a full-range sinusoid.
-    # NB: N_bits and SNR are set to zero for sub-bands 28 to 32.
-    # 
-    # Copyright N. Moreau, ENST Paris, 19/03/02
-    # Modified by Thierry Dutoit, FPMs Mons, 03/05/07
+    '''
+    Implements a simplified bit allocation greedy algorithm.
+    SMR: array of signal-to-mask ratios in each sub-band, as defined by
+    the MPEG-1 psycho-acoustic model.
+    bit_rate: target bit rate, in kbits/s.
+    N_bits: number of bits allocated to each sub-band.
+    SNR: maximum SNR in each sub-band after quantization, i.e. the SNR
+    assuming each sub-band contains a full-range sinusoid.
+    NB: N_bits and SNR are set to zero for sub-bands 28 to 32.
+    Copyright N. Moreau, ENST Paris, 19/03/02
+    Modified by Thierry Dutoit, FPMs Mons, 03/05/07
+    '''
     
     Fe=44100
     # Imposing low SMR for bands 28-32, to ensure 0 bits.

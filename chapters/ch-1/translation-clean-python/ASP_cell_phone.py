@@ -1,9 +1,22 @@
 # %%
+from scipy.io import wavfile
+from scipy import signal
+import matplotlib.pyplot as plt
+import numpy as np
+import sounddevice as sd
+import pitch
+import find_Nbest_components as fNbc
+import lpc_brute_force_calculation as lpc_bfc
+import visual_tools as vt
+
+# %%
 '''
 Chapter 1 - How is speech processed in a cell phone conversation?
 This is a companion file to the book "Applied Signal Processing",
 by T. Dutoit and F. Marques, Springer 2008.
-
+'''
+# %%
+'''
 In this script, we will see how LPC-based analysis-synthesis lies at the
 very heart of mobile phone transmission of speech. We will first examine
 the contents of a speech file, in Section 1. Then we will perform LP
@@ -18,17 +31,6 @@ Copyright T. Dutoit, N. Moreau, 2008
 
 Python translation by Ediz Aldogan.
 '''
-import numpy as np
-import matplotlib.pyplot as plt
-import sounddevice as sd
-from scipy.io import wavfile
-from scipy import signal
-
-import pitch
-import find_Nbest_components as fNbc
-import lpc_brute_force_calculation as lpc_bfc
-import visual_tools as vt
-
 plt.rcParams['figure.facecolor'] = 'white'
 plt.rcParams['axes.facecolor'] = 'white'
 plt.rcParams['savefig.facecolor'] = 'white' 
@@ -140,12 +142,11 @@ sigma = np.sqrt(sigma_squared)
 
 # %%
 '''
-The estimation algorithm inside LPC is called the Levinson-Durbin
-algorithm. It chooses the coefficients of an FIR filter A(z) so that when
+The estimation algorithm inside LPC uses a brute force method. It chooses the coefficients of an FIR filter A(z) so that when
 passing the input frame into A(Z), the output, termed as the prediction
 residual, has minimum energy. It can be shown that this leads to a filter
 which has anti-resonances wherever the input frame has a formant. For
-this reason, the A(zb) filter is termed as the "inverse" filter. Let us
+this reason, the A(z) filter is termed as the "inverse" filter. Let us
 plot its frequency response (on 512 points), and superimpose it to that
 of the "synthesis" filter 1/A(z).
 '''
@@ -169,7 +170,7 @@ spectral amplitude envelope of the frame. Let us superimpose this
 frequency response to periodogram of the vowel.
 '''
 vt.plot_periodogram(input_frame_for_letter_e, 2)
-plt.plot(W/np.pi,20*np.log10(sigma*abs(H)));
+plt.plot(W/np.pi,20*np.log10(sigma*abs(H)))
 
 # %%
 '''
@@ -462,7 +463,7 @@ for i in range(int((len(audio)-160)/80)):
         offset = offset-80
     else:
         # complete the previously unfinished pitch period
-        excitation = np.zeros(offset); 
+        excitation = np.zeros(offset)
         # for all pitch periods in the remaining of the frame
         for j in range(int(np.floor((80-offset)/N0))):
             # add one excitation period
@@ -473,7 +474,7 @@ for i in range(int((len(audio)-160)/80)):
             # fill the frame with a partial pitch period
             excitation =  np.concatenate((excitation,[1],np.zeros(flush-1)),axis=None) 
             # remember to fill the remaining of the period in next frame 
-            offset = N0-flush; 
+            offset = N0-flush
         else:
             offset = 0
 
@@ -574,23 +575,23 @@ for i in range(int((len(audio)-160)/80)):
             excitation = np.zeros(80)
             offset = offset-80
         else:
-            excitation = np.zeros(offset); 
+            excitation = np.zeros(offset)
             for j in range(int(np.floor((80-offset)/N0))):
                 excitation = np.concatenate((excitation,[1],np.zeros(N0-1)),axis=None)
             flush = 80-len(excitation)
             if flush!=0: 
                 excitation = np.concatenate((excitation,[1],np.zeros(flush-1)),axis=None)
-                offset = N0-flush; 
+                offset = N0-flush
             else:
                 offset = 0
-        gain = sigma/np.sqrt(1/N0);
+        gain = sigma/np.sqrt(1/N0)
     else:
         # Generate 10 ms of unvoiced voiced excitation
         excitation = np.random.randn(80) # White Gaussian noise
         gain = sigma
-        offset = 0; # reset for subsequent voiced frames  
+        offset = 0 # reset for subsequent voiced frames  
     
-    synt_frame, z = signal.lfilter([gain], a_coefficients,excitation, zi=z);
+    synt_frame, z = signal.lfilter([gain], a_coefficients,excitation, zi=z)
     synt_speech_LPC10.extend(synt_frame)
 
 synt_speech_LPC10 = np.array(synt_speech_LPC10)
@@ -686,7 +687,7 @@ for i in range(int((len(audio)-frame_length+frame_shift)/frame_shift)):
     
     # Generating the corresponding excitation as a weighted sum of
     # codebook vectors
-    excitation = np.dot(codebook[:,indices],gains);
+    excitation = np.dot(codebook[:,indices],gains)
     
     # Synthesizing CELP speech, and keeping track of the synthesis filter 
     # internal variables

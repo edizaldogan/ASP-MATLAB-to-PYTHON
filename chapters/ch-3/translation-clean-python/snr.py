@@ -3,19 +3,17 @@ import numpy as np
 from scipy import signal
 
 def snr(sig, signal_plus_noise, max_shift):
-
-    '''
-    [snr_value, shift] = snr(signal,signal_plus_noise, max_shift,showplot) returns the
-    signal-to-noise ratio computed from the input signals. |Max_shift| gives
-    the maximum time-shift (in samples) between signal and signal_plus_noise.
-    The actual time-shift (obtained from the maximum of the cross-correlation
-    and returned as |shift|) is taken into account to estimate the noise. If
-    signal are of different length, the shortest length is used.
-    If |showplot| is specified, then the signal, signal_plus_noise, and error 
-    are plotted, and the SNR is printed on the plot.
+    """
+    Returns the signal-to-noise ratio (in dB) computed from the input
+    signals.
+    sig: the reference (clean) signal.
+    signal_plus_noise: the signal to compare against 'sig'. 
+    max_shift: maximum time-shift (in samples) allowed between 'sig' and 'signal_plus_noise'. The actual shift is found from the peak of the cross-correlation between the two signals, and is taken into account when estimating the noise.
+    If the two signals have different lengths, the shorter length is used.
+    snr_value: the estimated SNR, in dB.
 
     T DUTOIT, 13:49 12/03/2007
-    '''
+    """
 
     sig_length = min(len(sig), len(signal_plus_noise))
     sig_length = (sig_length//2)*2 # make it even

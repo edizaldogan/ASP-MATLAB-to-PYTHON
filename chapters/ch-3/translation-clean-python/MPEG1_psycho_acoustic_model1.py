@@ -9,25 +9,24 @@ Frontieres_k = np.array([])
 Larg_f = np.array([])
 
 def MPEG1_psycho_acoustic_model1(frame):
-    # function [SMR, min_threshold_subband, frame_psd_SPL, ...
-    #    masking_threshold] = MPEG1_psycho_acoustic_model1(frame)
-    # Computes the masking threshold (in dB) corresponding to psycho-acoustic
-    # model #1 used in MPEG-1 Audio (cf  ISO/CEI  norm 11172-3:1993 (F), pp.
-    # 122-128). 
-    # Input |frame| length should be 512 samples, in the [-1,+1] range. 
-    # |SMR| returns 27 signal-to-mask ratios (in dB).
-    # |min_threshold_subband| returns the minimun of |masking threshold| in each
-    # of the 32 sub-bands. 
-    # |frame_psd_SPL| returns the estimated PSD of the input frame, in dB SPL,
-    # assuming the level of full scale signals is set to 96 dB SPL.
-    #
-    # Copyright N. Moreau, ENST Paris, 19/03/02
-    # Modified by Thierry Dutoit, FPMs Mons, 03/05/07
+    """
+    Computes the masking threshold (in dB) corresponding to psycho-acoustic
+    model #1 used in MPEG-1 Audio (cf. ISO/CEI norm 11172-3:1993 (F), pp.
+    122-128).
+    frame: 512-sample audio frame, with values in the range [-1, +1].
+    SMR: 27 signal-to-mask ratios (in dB).
+    min_threshold_subband: minimum of the masking threshold in each of the 32 sub-bands.
+    frame_psd_SPL: estimated PSD of the input frame, in dB SPL, assuming the level of a full-scale signal is set to 96 dB SPL.
+    masking_threshold: the full masking threshold curve.
+
+    Copyright N. Moreau, ENST Paris, 19/03/02
+    Modified by Thierry Dutoit, FPMs Mons, 03/05/07
+    """
 
     global LTq_i, LTq_k, Table_z, Frontieres_i, Frontieres_k, Larg_f
 
     def ppv(k0_new):
-        k0 = k0_new+1 #Matlab logic below
+        k0 = k0_new+1 # converting to the 1-indexed convention used in the ISO/CEI tables below
         if k0 <= 48:
             i0 = k0
         elif k0 <= 96:
@@ -67,8 +66,8 @@ def MPEG1_psycho_acoustic_model1(frame):
         perio_xn_db = 10*np.log10(X1)
     else:
         perio_xn_db = np.zeros(int(N/2)+1)
-    #offset = max(perio_xn_db) - 96;
-    #X = perio_xn_db - offset;
+    # offset = np.max(perio_xn_db) - 96
+    # X = perio_xn_db - offset
 
     # NB: since the absolute acoustic level set by the listener is not known by
     # the MPEG psycho-acoustic model, it assumes that the level is set such
@@ -76,7 +75,7 @@ def MPEG1_psycho_acoustic_model1(frame):
     # have about 96 dB of dynamics, this implies that the LSB is close to 
     # the absolute auditory threshold.
     # Since the absolute value of input samples is assumed to be <1, a
-    # full-scale signal, i.e. ones(1:512), will produce a PSD peak at
+    # full-scale signal, i.e. np.ones(512), will produce a PSD peak at
     # 10*log10(512)=27.09dB. Hence the 96-27.09 dB offset.
 
     offset=96-27.09
@@ -318,10 +317,13 @@ def MPEG1_psycho_acoustic_model1_init():
         else:
             last_nonzero = LTq_k[k]
 
-    # axe_freq = (0:249)*Fe/512/1000
-    # figure(1); hold off
-    # plot(axe_freq, LTq_k); hold on
-    # axis([0 20 -10 70])
+    # axe_freq = np.arange(250)*44100/512/1000
+    # plt.figure()
+    # plt.plot(axe_freq, LTq_k)
+    # plt.axis([0, 20, -10, 70])
+    # plt.xlabel('Frequency (kHz)')
+    # plt.ylabel('Threshold (dB)')
+    # plt.title('Absolute auditory threshold')
 
     # Bark frequencies as a fucntion of "i"
     Table_z = np.array([ .850, 1.694, 2.525, 3.337, 4.124, 4.882, 5.608, 6.301,
