@@ -221,6 +221,10 @@ __marimo__/
 # MATLAB 
 *.asv
 
+# WAV files
+*.wav
+*.WAV
+
 reports/
 
 chapters/ch-1/figures/
