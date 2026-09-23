@@ -5,3 +5,4 @@ sounddevice
 soundfile
 ipykernel
 streamlit
+audio_recorder_streamlit
